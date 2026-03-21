@@ -2241,41 +2241,72 @@
 
       // Mapeamento de padrões de colunas por tipo
       const padroes = [
+        // === BLING — Padrões reais dos exports ===
         {
           tipo: 'bling_clientes',
           label: 'Bling — Clientes',
           icon: '👥',
           color: 'blue',
           destino: 'Matriz RFM / Análise de Clientes',
-          keywords: [['nome', 'fantasia', 'cnpj'], ['nome', 'cpf', 'email'], ['nome do contato', 'numero', 'bairro'], ['nome', 'tipo pessoa', 'situacao']],
-          requiredAny: ['cpf/cnpj', 'cnpj', 'cpf', 'tipo pessoa', 'numero documento'],
-          camposMapeados: { nome: ['nome', 'nome do contato', 'nome fantasia', 'razao social'], email: ['email', 'e-mail'], telefone: ['fone', 'telefone', 'celular'], uf: ['uf', 'estado'], cidade: ['cidade', 'municipio'], tipo: ['tipo pessoa', 'tipo'] }
+          keywords: [['nome', 'loja', 'produtos', 'valor', 'celular'], ['nome', 'loja', 'lucro venda'], ['nome', 'markup', 'historico']],
+          requiredAny: ['lucro venda', 'celular', 'historico'],
+          camposMapeados: { nome: ['nome'], loja: ['loja'], produtos: ['produtos'], valor: ['valor'], markup: ['markup'], lucro: ['lucro venda'], percentual: ['%'], telefone: ['celular'], historico: ['historico'] }
         },
         {
-          tipo: 'bling_vendas',
-          label: 'Bling — Vendas/Pedidos',
-          icon: '🧾',
+          tipo: 'bling_vendas_loja',
+          label: 'Bling — Vendas por Loja',
+          icon: '🏪',
           color: 'green',
-          destino: 'Dashboard / Fluxo de Caixa / RFM',
-          keywords: [['numero', 'data', 'total', 'cliente'], ['nro pedido', 'valor'], ['numero pedido', 'situacao']],
-          requiredAny: ['total produtos', 'valor total', 'total', 'valor', 'numero pedido', 'nro pedido', 'n pedido'],
-          camposMapeados: { pedido: ['numero', 'nro pedido', 'numero pedido', 'n pedido'], data: ['data', 'data pedido', 'data venda', 'data emissao'], cliente: ['cliente', 'nome cliente', 'contato'], valor: ['total', 'valor total', 'total produtos', 'valor'], status: ['situacao', 'status'] }
+          destino: 'Dashboard / Canais de Venda',
+          keywords: [['loja', 'pedidos', 'ticket medio', 'markup', 'impostos', 'taxas'], ['loja', 'quantidade', 'custo', 'valor', 'frete']],
+          requiredAny: ['ticket medio', '% contribuicao', '$ contribuicao', 'valor peca', 'impostos', 'taxas'],
+          camposMapeados: { loja: ['loja'], pedidos: ['pedidos'], ticketMedio: ['ticket medio'], quantidade: ['quantidade'], custo: ['custo'], valor: ['valor'], frete: ['frete'], markup: ['markup'], impostos: ['impostos'], taxas: ['taxas'], contribuicao: ['$ contribuicao', '% contribuicao'] }
+        },
+        {
+          tipo: 'bling_vendas_estado',
+          label: 'Bling — Vendas por Estado',
+          icon: '🗺️',
+          color: 'teal',
+          destino: 'Dashboard / Análise Regional',
+          keywords: [['estado', 'frete medio', 'pecas', 'pedidos', 'ticket medio', 'valor']],
+          requiredAny: ['frete medio', 'pecas', 'estado'],
+          camposMapeados: { estado: ['estado'], freteMedio: ['frete medio'], pecas: ['pecas'], pedidos: ['pedidos'], ticketMedio: ['ticket medio'], valor: ['valor'] }
         },
         {
           tipo: 'bling_produtos',
-          label: 'Bling — Produtos/Estoque',
+          label: 'Bling — Produtos',
           icon: '📦',
           color: 'purple',
           destino: 'Produtos / Cross-sell',
-          keywords: [['codigo', 'descricao', 'preco'], ['sku', 'nome', 'estoque'], ['codigo', 'produto', 'quantidade']],
-          requiredAny: ['sku', 'codigo', 'cod', 'descricao do produto', 'estoque', 'preco venda', 'preco'],
-          camposMapeados: { sku: ['sku', 'codigo', 'cod', 'id produto'], nome: ['descricao', 'nome', 'produto', 'descricao do produto'], preco: ['preco', 'preco venda', 'valor venda', 'preco unitario'], estoque: ['estoque', 'quantidade', 'qtd', 'saldo'], custo: ['preco custo', 'custo', 'valor custo'] }
+          keywords: [['codigo', 'descricao', 'quantidade', 'custo', 'valor', 'markup']],
+          requiredAny: ['codigo', 'descricao', 'markup'],
+          camposMapeados: { sku: ['codigo'], nome: ['descricao'], quantidade: ['quantidade'], custo: ['custo'], valor: ['valor'], markup: ['markup'] }
+        },
+        {
+          tipo: 'bling_curva_abc',
+          label: 'Bling — Curva ABC',
+          icon: '📊',
+          color: 'orange',
+          destino: 'Produtos / Análise de Portfólio',
+          keywords: [['codigo', 'descricao', 'quantidade', 'valor', 'markup', '% faturamento', '% acumulado', 'historico']],
+          requiredAny: ['% faturamento', '% acumulado', 'historico'],
+          camposMapeados: { sku: ['codigo'], nome: ['descricao'], quantidade: ['quantidade'], valor: ['valor'], markup: ['markup'], faturamento: ['% faturamento'], acumulado: ['% acumulado'], historico: ['historico'] }
+        },
+        {
+          tipo: 'bling_estoque',
+          label: 'Bling — Estoque de Produtos',
+          icon: '🏭',
+          color: 'amber',
+          destino: 'Produtos / Gestão de Estoque',
+          keywords: [['codigo', 'descricao', 'estoque', 'custo', 'valor']],
+          requiredAny: ['estoque'],
+          camposMapeados: { sku: ['codigo'], nome: ['descricao'], estoque: ['estoque'], custo: ['custo'], valor: ['valor'] }
         },
         {
           tipo: 'bling_financeiro',
           label: 'Bling — Financeiro/Contas',
           icon: '💰',
-          color: 'orange',
+          color: 'red',
           destino: 'Fluxo de Caixa / DRE',
           keywords: [['vencimento', 'valor', 'situacao'], ['data pagamento', 'valor pago'], ['descricao', 'valor', 'tipo', 'categoria']],
           requiredAny: ['vencimento', 'data pagamento', 'valor pago', 'conta', 'portador', 'plano de contas'],
@@ -2291,6 +2322,7 @@
           requiredAny: ['chave de acesso', 'chave', 'numero nf', 'serie', 'cfop', 'nfe'],
           camposMapeados: { numero: ['numero nf', 'numero', 'nfe'], data: ['data emissao', 'data'], valor: ['valor total', 'valor', 'total'], cliente: ['cliente', 'destinatario'] }
         },
+        // === SHOPIFY ===
         {
           tipo: 'shopify_clientes',
           label: 'Shopify — Clientes',
@@ -2305,12 +2337,13 @@
           tipo: 'shopify_pedidos',
           label: 'Shopify — Pedidos',
           icon: '🛒',
-          color: 'teal',
+          color: 'lime',
           destino: 'Dashboard / Canais',
           keywords: [['name', 'total', 'financial status'], ['order', 'subtotal', 'shipping']],
           requiredAny: ['financial status', 'fulfillment status', 'lineitem', 'subtotal', 'shipping'],
           camposMapeados: { pedido: ['name', 'order', 'number'], data: ['created at', 'paid at'], valor: ['total', 'subtotal'], cliente: ['billing name', 'shipping name', 'email'] }
         },
+        // === RD STATION ===
         {
           tipo: 'rdstation_contatos',
           label: 'RD Station — Contatos',
@@ -2414,9 +2447,53 @@
             try {
               const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
               const ws = wb.Sheets[wb.SheetNames[0]];
-              const json = XLSX.utils.sheet_to_json(ws, { defval: '' });
-              const colunas = json.length > 0 ? Object.keys(json[0]) : [];
-              resolve({ colunas, dados: json, erros: 0, abas: wb.SheetNames });
+              let json = XLSX.utils.sheet_to_json(ws, { defval: '' });
+              let colunas = json.length > 0 ? Object.keys(json[0]) : [];
+              let linhasTituloPuladas = 0;
+
+              // Detectar linha de título do Bling (primeira coluna = "Meu Negócio" ou nome genérico)
+              // Se a primeira linha parece um título e a segunda tem headers reais, pular
+              if (json.length > 1) {
+                const primeiraLinha = Object.values(json[0]).map(v => String(v).trim());
+                const primeiroValor = primeiraLinha[0] || '';
+                const restVazios = primeiraLinha.slice(1).filter(v => v && v !== '').length;
+
+                // Padrão Bling: primeira célula tem "Meu Negócio" e o resto é vazio/undefined
+                // Ou: primeira linha tem poucos valores preenchidos vs quantidade de colunas
+                const pareceLinhaDoTitulo = (
+                  primeiroValor.toLowerCase().includes('meu neg') ||
+                  primeiroValor.toLowerCase().includes('bling') ||
+                  primeiroValor.toLowerCase().includes('relat') ||
+                  (restVazios <= 1 && colunas.length >= 4)
+                );
+
+                if (pareceLinhaDoTitulo) {
+                  // Re-parse usando a segunda linha como header
+                  const jsonRaw = XLSX.utils.sheet_to_json(ws, { defval: '', header: 1 });
+                  if (jsonRaw.length > 2) {
+                    // Achar a primeira linha que parece header (tem múltiplos valores texto)
+                    let headerRow = 1;
+                    for (let i = 1; i < Math.min(jsonRaw.length, 5); i++) {
+                      const row = jsonRaw[i];
+                      const textValues = row.filter(v => v && String(v).trim() && isNaN(String(v).replace(/[R$\s.,]/g, '')));
+                      if (textValues.length >= 2) { headerRow = i; break; }
+                    }
+                    const headers = jsonRaw[headerRow].map((h, idx) => h ? String(h).trim() : `Coluna_${idx + 1}`);
+                    const dataRows = jsonRaw.slice(headerRow + 1)
+                      .filter(row => row.some(v => v !== '' && v != null))
+                      .map(row => {
+                        const obj = {};
+                        headers.forEach((h, idx) => { obj[h] = row[idx] != null ? row[idx] : ''; });
+                        return obj;
+                      });
+                    colunas = headers;
+                    json = dataRows;
+                    linhasTituloPuladas = headerRow;
+                  }
+                }
+              }
+
+              resolve({ colunas, dados: json, erros: 0, abas: wb.SheetNames, linhasTituloPuladas });
             } catch (err) { reject(err); }
           };
           reader.readAsArrayBuffer(file);
