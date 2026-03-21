@@ -52,9 +52,35 @@
         banco: { nome: "CEF", agencia: "01502", conta: "000578237293-8" },
         equipe: 3,
         anosOperacao: 20,
-        totalSKUs: 3000,
-        baseClientes: 49000,
+        totalSKUs: 8106,
+        baseClientes: 7500,
         taxaRecompra: 44
+      },
+      // Base de clientes real (Bling export 16 arquivos)
+      baseClientesReal: {
+        totalRegistros: 8000,
+        clientesUnicos: 7500,
+        duplicados: 500,
+        pessoaFisica: 7830,
+        pessoaJuridica: 166,
+        estrangeiro: 4,
+        comEmail: 6127,
+        percentEmail: 76.6,
+        comCelular: 6148,
+        percentCelular: 76.8,
+        todosAtivos: true,
+        porUF: [
+          { uf: "DF", qtd: 3092, percent: 38.7 },
+          { uf: "SP", qtd: 1786, percent: 22.3 },
+          { uf: "MG", qtd: 672, percent: 8.4 },
+          { uf: "RJ", qtd: 543, percent: 6.8 },
+          { uf: "GO", qtd: 243, percent: 3.0 },
+          { uf: "PR", qtd: 239, percent: 3.0 },
+          { uf: "BA", qtd: 211, percent: 2.6 },
+          { uf: "RS", qtd: 192, percent: 2.4 },
+          { uf: "SC", qtd: 170, percent: 2.1 },
+          { uf: "PE", qtd: 114, percent: 1.4 }
+        ]
       },
       fluxoCaixa: {
         periodoAtual: "MAR/2026 (01-21)",
@@ -249,7 +275,7 @@
         { tipo: "alto", titulo: "Dependência Shopify", desc: "99,2% das vendas", acao: "Diversificar canais" },
         { tipo: "medio", titulo: "Concentração Regional", desc: "DF = 42% dos pedidos", acao: "Expandir para SP, MG, RJ" },
         { tipo: "positivo", titulo: "Markup Saudável", desc: "77,3% médio", acao: "Manter precificação" },
-        { tipo: "positivo", titulo: "Base Grande", desc: "49K clientes, 44% recompra", acao: "Campanhas reativação" }
+        { tipo: "positivo", titulo: "Base Grande", desc: "7.500 clientes, 44% recompra", acao: "Campanhas reativação" }
       ],
       aportes: {
         total4Meses: 118288.89,
@@ -591,7 +617,7 @@
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Snapshot do Negócio</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KPICard label="SKUs ativos" value="3.000+" color="blue" />
-              <KPICard label="Base de clientes" value="~49K" color="blue" />
+              <KPICard label="Base de clientes" value="7.500" color="blue" />
               <KPICard label="Taxa recompra" value="44%" color="green" />
               <KPICard label="Anos no mercado" value="20+" />
             </div>
@@ -1466,11 +1492,11 @@
               <SectionCard title="Funil de Conversão B2C">
                 <div className="space-y-1">
                   {[
-                    { etapa: 'Base cadastrada', valor: 49000, percent: 100, color: 'bg-blue-500', desc: 'Todos os clientes no sistema' },
-                    { etapa: 'Compraram alguma vez', valor: 21560, percent: 44, color: 'bg-indigo-500', desc: '44% taxa de conversão histórica' },
-                    { etapa: 'Ativos (últimos 12 meses)', valor: 4900, percent: 10, color: 'bg-purple-500', desc: 'Estimativa ~10% da base' },
-                    { etapa: 'Ativos (últimos 90 dias)', valor: 788, percent: 1.6, color: 'bg-orange-500', desc: 'Estimativa baseada na sazonalidade' },
-                    { etapa: 'Compraram em Março/26', valor: 264, percent: 0.54, color: 'bg-red-500', desc: '264 pedidos no período' }
+                    { etapa: 'Base cadastrada (Bling)', valor: 7500, percent: 100, color: 'bg-blue-500', desc: '7.500 clientes únicos ativos — 76.6% com e-mail' },
+                    { etapa: 'Compraram alguma vez', valor: 3300, percent: 44, color: 'bg-indigo-500', desc: '44% taxa de conversão histórica' },
+                    { etapa: 'Ativos (últimos 12 meses)', valor: 750, percent: 10, color: 'bg-purple-500', desc: 'Estimativa ~10% da base' },
+                    { etapa: 'Ativos (últimos 90 dias)', valor: 420, percent: 5.6, color: 'bg-orange-500', desc: 'Estimativa baseada nos relatórios' },
+                    { etapa: 'Compraram em Março/26', valor: 264, percent: 3.5, color: 'bg-red-500', desc: '264 pedidos no período analisado' }
                   ].map((item, i) => (
                     <div key={i} className="animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
                       <div className="flex items-center gap-3 mb-1">
@@ -1517,9 +1543,9 @@
               <SectionCard title="Simulador de Impacto — Reativação B2C">
                 <div className="grid md:grid-cols-3 gap-6">
                   {[
-                    { cenario: 'Conservador', taxaReativ: 3, clientes: 600, receitaEst: 600 * 150, color: 'orange' },
-                    { cenario: 'Moderado', taxaReativ: 5, clientes: 1000, receitaEst: 1000 * 150, color: 'blue' },
-                    { cenario: 'Agressivo', taxaReativ: 10, clientes: 2000, receitaEst: 2000 * 150, color: 'green' }
+                    { cenario: 'Conservador', taxaReativ: 5, clientes: 150, receitaEst: 150 * 166, color: 'orange' },
+                    { cenario: 'Moderado', taxaReativ: 10, clientes: 300, receitaEst: 300 * 166, color: 'blue' },
+                    { cenario: 'Agressivo', taxaReativ: 20, clientes: 600, receitaEst: 600 * 166, color: 'green' }
                   ].map((c, i) => (
                     <div key={i} className={`text-center p-4 rounded-xl border bg-${c.color}-50 dark:bg-${c.color}-950 border-${c.color}-200 dark:border-${c.color}-800`}>
                       <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">{c.cenario}</p>
@@ -1954,7 +1980,7 @@
             <div className="space-y-6 animate-fade-in">
               {/* KPIs de Cliente */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard label="Base Total" value="~49.000" subvalue="clientes cadastrados" color="blue" />
+                <KPICard label="Base Total" value="7.500" subvalue={`${DADOS.baseClientesReal.percentEmail}% com e-mail`} color="blue" />
                 <KPICard label="Taxa Recompra" value="44%" subvalue="retornam para comprar" trend="up" color="green" />
                 <KPICard label="Clientes Ativos (Mar)" value={DADOS.receita.pedidos} subvalue="pedidos no período" />
                 <KPICard label="LTV Médio Estimado" value={formatCurrency(DADOS.receita.ticketMedio * 3.2)} subvalue="~3,2 compras/ano" color="green" />
@@ -2014,14 +2040,15 @@
               {/* Funil e métricas */}
               <SectionCard title="Funil de Clientes (Estimativa)">
                 <div className="space-y-3">
-                  <ProgressBar label="Base cadastrada" value={49000} max={49000} color="blue" detail="49.000 clientes" showPercent={false} />
-                  <ProgressBar label="Compraram alguma vez" value={21560} max={49000} color="green" detail="~21.560 (44%)" />
-                  <ProgressBar label="Ativos últimos 90 dias" value={788} max={49000} color="orange" detail="~788 (estimado)" />
-                  <ProgressBar label="Compraram em Março" value={264} max={49000} color="purple" detail="264 pedidos" />
+                  <ProgressBar label="Base cadastrada (Bling)" value={7500} max={7500} color="blue" detail="7.500 clientes únicos" showPercent={false} />
+                  <ProgressBar label="Com e-mail" value={6127} max={7500} color="green" detail={`${formatNumber(6127)} (76.6%)`} />
+                  <ProgressBar label="Com celular" value={6148} max={7500} color="green" detail={`${formatNumber(6148)} (76.8%)`} />
+                  <ProgressBar label="Compraram alguma vez (est. 44%)" value={3300} max={7500} color="orange" detail="~3.300 clientes" />
+                  <ProgressBar label="Compraram em Março" value={264} max={7500} color="purple" detail="264 pedidos" />
                 </div>
                 <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">Oportunidade: ~20.000 clientes inativos</p>
-                  <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">Se 5% forem reativados com ticket de R$ 150 = R$ 150.000 em receita potencial</p>
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">Oportunidade: ~3.000 clientes inativos com e-mail</p>
+                  <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">Se 10% forem reativados com ticket de R$ 166 = R$ 49.800 em receita potencial</p>
                 </div>
               </SectionCard>
             </div>
@@ -2965,7 +2992,7 @@
               {[
                 { num: 1, acao: "Renegociar contrato Webi (success fee)", impacto: "Economia R$ 5-6K/mês" },
                 { num: 2, acao: "Refinanciar dívidas (SIEMP + Cartão)", impacto: "Reduzir R$ 8K → R$ 3K/mês" },
-                { num: 3, acao: "Campanha reativação base 49K", impacto: "Recuperar 10% = R$ 20K receita" },
+                { num: 3, acao: "Campanha reativação base 7.500", impacto: "Recuperar 10% inativos = R$ 50K receita" },
                 { num: 4, acao: "Prospecção 10 farmácias B2B", impacto: "Adicionar R$ 25K/mês" }
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg p-3">
