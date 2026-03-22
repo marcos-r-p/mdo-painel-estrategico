@@ -586,26 +586,73 @@
     // ==========================================
     const DashboardSection = ({ onDataApplied }) => {
       const [showImportar, setShowImportar] = useState(false);
+      const [syncStatus, setSyncStatus] = useState(null); // null, 'sincronizando', 'sucesso', 'erro'
+      const [syncResult, setSyncResult] = useState(null);
       const receitaSpark = [null, null, 70923.25, 43890.65].filter(v => v !== null);
       const pedidosSpark = [null, null, 370, 264].filter(v => v !== null);
       const ticketSpark = [null, null, 191.68, 166.25].filter(v => v !== null);
 
       return (
         <div className="space-y-6">
-          {/* Botão Importar Dados em destaque */}
-          <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl p-[2px] animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-2xl">📥</div>
-                <div>
-                  <h3 className="font-bold text-gray-800 dark:text-gray-100">Importar Dados</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Arraste arquivos do Bling, Shopify ou RD Station — a IA identifica automaticamente</p>
+          {/* Bling API + Importar Dados */}
+          <div className="grid md:grid-cols-2 gap-4 animate-fade-in">
+            {/* Conectar Bling */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-[2px]">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 h-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900 flex items-center justify-center text-xl">🔗</div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">API Bling</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Sincronizar dados automaticamente</p>
+                  </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => { window.open(`https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=567bba7562d27003649ad247d8bd0baad95d3435&state=mdo`, '_blank', 'width=600,height=700'); }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition">
+                    Conectar Bling
+                  </button>
+                  <button onClick={async () => {
+                    setSyncStatus('sincronizando');
+                    try {
+                      const res = await fetch(`${SUPABASE_URL}/functions/v1/bling-sync?tipo=all`);
+                      const data = await res.json();
+                      setSyncStatus(data.status === 'ok' ? 'sucesso' : 'erro');
+                      setSyncResult(data);
+                      if (onDataApplied) onDataApplied();
+                    } catch (e) { setSyncStatus('erro'); }
+                  }}
+                    className="px-4 py-2 bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 rounded-lg text-xs font-medium hover:bg-emerald-200 transition">
+                    {syncStatus === 'sincronizando' ? '⏳ Sincronizando...' : '🔄 Sincronizar Tudo'}
+                  </button>
+                </div>
+                {syncStatus === 'sucesso' && syncResult && (
+                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-950 rounded-lg text-xs text-green-700 dark:text-green-400 animate-fade-in">
+                    Sincronizado: {Object.entries(syncResult.sincronizados || {}).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+                  </div>
+                )}
+                {syncStatus === 'erro' && (
+                  <div className="mt-2 p-2 bg-red-50 dark:bg-red-950 rounded-lg text-xs text-red-700 dark:text-red-400">
+                    Erro na sincronização. Verifique se o Bling está conectado.
+                  </div>
+                )}
               </div>
-              <button onClick={() => setShowImportar(!showImportar)}
-                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition shadow-lg hover:shadow-xl flex items-center gap-2">
-                {showImportar ? '✕ Fechar' : '📥 Importar Arquivos'}
-              </button>
+            </div>
+
+            {/* Importar Arquivos */}
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-[2px]">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 h-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-xl">📥</div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">Importar Arquivos</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">CSV/Excel do Bling, Shopify, RD Station</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowImportar(!showImportar)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition">
+                  {showImportar ? '✕ Fechar' : '📥 Importar Arquivos'}
+                </button>
+              </div>
             </div>
           </div>
 
