@@ -1017,6 +1017,10 @@
     // SEÇÃO: FLUXO DE CAIXA
     // ==========================================
     const FluxoCaixaSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       return (
         <div className="space-y-6">
           {fonteAtiva === 'shopify' && (
@@ -1028,6 +1032,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Evolução do Saldo Bancário</h2>
             <SectionCard>
@@ -1273,6 +1278,10 @@
     };
 
     const MatrizRFMSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       const [selectedSegmento, setSelectedSegmento] = useState(null);
       const [selectedCliente, setSelectedCliente] = useState(null);
       const [viewMode, setViewMode] = useState('matriz');
@@ -1327,6 +1336,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           {/* Header */}
           <div className="flex flex-wrap justify-between items-center gap-3">
             <div>
@@ -1725,6 +1735,10 @@
     // SEÇÃO: ANÁLISE B2C (NOVA)
     // ==========================================
     const AnaliseB2CSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       const [subTab, setSubTab] = useState('perfil');
 
       // Dados derivados B2C
@@ -1796,6 +1810,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           {/* Sub-navegação */}
           <div className="flex gap-2 flex-wrap no-print">
             {subTabs.map(t => (
@@ -2226,6 +2241,10 @@
     // SEÇÃO: CANAIS B2B
     // ==========================================
     const CanaisB2BSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       const [selectedCanal, setSelectedCanal] = useState(null);
 
       return (
@@ -2239,6 +2258,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Canais Atuais de Venda</h2>
             <SectionCard>
@@ -2338,6 +2358,10 @@
     // SEÇÃO: ANÁLISE DE CLIENTES (NOVA)
     // ==========================================
     const AnaliseClientesSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       const [viewMode, setViewMode] = useState('geral');
 
       const clientesSemAgregado = DADOS.topClientes.filter(c => !c.nome.includes('agregado'));
@@ -2387,6 +2411,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           {/* Filtros de visualização */}
           <div className="flex gap-2 no-print">
             {[
@@ -3108,6 +3133,10 @@
     // SEÇÃO: METAS 90 DIAS (NOVA)
     // ==========================================
     const MetasSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       const fases = [DADOS.metas.fase1, DADOS.metas.fase2, DADOS.metas.fase3];
       const faseColors = ['blue', 'purple', 'green'];
       const faseBgs = [
@@ -3127,6 +3156,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           <div className="grid md:grid-cols-3 gap-6">
             {fases.map((fase, fi) => (
               <div key={fi} className={`rounded-xl border p-4 ${faseBgs[fi]} animate-slide-up`} style={{ animationDelay: `${fi * 100}ms` }}>
@@ -3915,6 +3945,10 @@
     // SEÇÃO: ALERTAS E PRODUTOS (mantidas)
     // ==========================================
     const AlertasSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       const renderGroup = (tipo, icon, cls) => {
         const items = DADOS.alertas.filter(a => a.tipo === tipo);
         if (!items.length) return null;
@@ -3950,6 +3984,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Alertas e Diagnósticos</h2>
           {renderGroup('critico', '🔴', 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300')}
           {renderGroup('alto', '🟠', 'bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300')}
@@ -3980,6 +4015,10 @@
     };
 
     const ProdutosSection = ({ fonteAtiva }) => {
+      const [dataIni, setDataIni] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0]; });
+      const [dataFim, setDataFim] = useState(new Date().toISOString().split('T')[0]);
+      const setPeriodo = ({ini, fim}) => { setDataIni(ini); setDataFim(fim); };
+
       return (
         <div className="space-y-6">
           {fonteAtiva === 'shopify' && (
@@ -3991,6 +4030,7 @@
               </div>
             </div>
           )}
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Top 20 Produtos — Curva ABC (Classe A)</h2>
             <SectionCard>
