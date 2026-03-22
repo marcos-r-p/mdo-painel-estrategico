@@ -2225,11 +2225,20 @@
     // ==========================================
     // SEÇÃO: CANAIS B2B
     // ==========================================
-    const CanaisB2BSection = () => {
+    const CanaisB2BSection = ({ fonteAtiva }) => {
       const [selectedCanal, setSelectedCanal] = useState(null);
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Canais Atuais de Venda</h2>
             <SectionCard>
@@ -2328,7 +2337,7 @@
     // ==========================================
     // SEÇÃO: ANÁLISE DE CLIENTES (NOVA)
     // ==========================================
-    const AnaliseClientesSection = () => {
+    const AnaliseClientesSection = ({ fonteAtiva }) => {
       const [viewMode, setViewMode] = useState('geral');
 
       const clientesSemAgregado = DADOS.topClientes.filter(c => !c.nome.includes('agregado'));
@@ -2369,6 +2378,15 @@
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           {/* Filtros de visualização */}
           <div className="flex gap-2 no-print">
             {[
@@ -2678,7 +2696,7 @@
 
     const formatMes = formatMesLabel; // alias
 
-    const AnaliseTemporalSection = ({ periodo: periodoGlobal }) => {
+    const AnaliseTemporalSection = ({ periodo: periodoGlobal, fonteAtiva }) => {
       const [modo, setModo] = useState('evolucao');
       const [periodos, setPeriodos] = useState([null, null, null]);
       const [ufsPorMes, setUfsPorMes] = useState({});
@@ -2755,6 +2773,15 @@
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           {/* Header com toggles */}
           <div className="flex flex-wrap justify-between items-center gap-3">
             <div>
@@ -3080,7 +3107,7 @@
     // ==========================================
     // SEÇÃO: METAS 90 DIAS (NOVA)
     // ==========================================
-    const MetasSection = () => {
+    const MetasSection = ({ fonteAtiva }) => {
       const fases = [DADOS.metas.fase1, DADOS.metas.fase2, DADOS.metas.fase3];
       const faseColors = ['blue', 'purple', 'green'];
       const faseBgs = [
@@ -3091,6 +3118,15 @@
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           <div className="grid md:grid-cols-3 gap-6">
             {fases.map((fase, fi) => (
               <div key={fi} className={`rounded-xl border p-4 ${faseBgs[fi]} animate-slide-up`} style={{ animationDelay: `${fi * 100}ms` }}>
@@ -3878,7 +3914,7 @@
     // ==========================================
     // SEÇÃO: ALERTAS E PRODUTOS (mantidas)
     // ==========================================
-    const AlertasSection = () => {
+    const AlertasSection = ({ fonteAtiva }) => {
       const renderGroup = (tipo, icon, cls) => {
         const items = DADOS.alertas.filter(a => a.tipo === tipo);
         if (!items.length) return null;
@@ -3905,6 +3941,15 @@
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Alertas e Diagnósticos</h2>
           {renderGroup('critico', '🔴', 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300')}
           {renderGroup('alto', '🟠', 'bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-300')}
@@ -3934,9 +3979,18 @@
       );
     };
 
-    const ProdutosSection = () => {
+    const ProdutosSection = ({ fonteAtiva }) => {
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Top 20 Produtos — Curva ABC (Classe A)</h2>
             <SectionCard>
@@ -4067,7 +4121,7 @@
     // ==========================================
     // SEÇÃO: SHOPIFY
     // ==========================================
-    const ShopifySection = ({ periodo }) => {
+    const ShopifySection = ({ periodo, fonteAtiva }) => {
       const hoje = new Date();
       const ini30 = new Date(hoje); ini30.setDate(ini30.getDate() - 30);
       const [dataIni, setDataIni] = useState(ini30.toISOString().split('T')[0]);
@@ -4204,6 +4258,15 @@
 
       return (
         <div className="space-y-4">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
 
           {/* KPIs */}
@@ -4328,7 +4391,7 @@
     // ==========================================
     // SEÇÃO: FUNIL DE CONVERSÃO
     // ==========================================
-    const FunilSection = ({ periodo }) => {
+    const FunilSection = ({ periodo, fonteAtiva }) => {
       const [pedidos, setPedidos] = useState([]);
       const [loading, setLoading] = useState(true);
 
@@ -4378,6 +4441,15 @@
 
       return (
         <div className="space-y-4">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           {/* Aviso */}
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-3 flex items-start gap-2">
             <span className="text-yellow-500 text-lg">⚠️</span>
