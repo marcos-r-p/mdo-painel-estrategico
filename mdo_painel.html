@@ -762,7 +762,7 @@
     // ==========================================
     // SEÇÃO: DASHBOARD
     // ==========================================
-    const DashboardSection = ({ onDataApplied, isAdmin }) => {
+    const DashboardSection = ({ onDataApplied, isAdmin, fonteAtiva }) => {
       const [showImportar, setShowImportar] = useState(false);
       const [syncStatus, setSyncStatus] = useState(null); // null, 'sincronizando', 'sucesso', 'erro'
       const [shopifySyncStatus, setShopifySyncStatus] = useState(null);
@@ -772,8 +772,34 @@
       const pedidosSpark = [null, null, 370, 264].filter(v => v !== null);
       const ticketSpark = [null, null, 191.68, 166.25].filter(v => v !== null);
 
+      // Shopify data source
+      const shopifyData = useShopifyData();
+      const shopifyStats = useMemo(() => {
+        if (fonteAtiva !== 'shopify' || shopifyData.loading) return null;
+        const pedidos = shopifyData.pedidos;
+        const clientes = shopifyData.clientes;
+        const receitaTotal = pedidos.reduce((s, p) => s + parseFloat(p.valor_total || 0), 0);
+        const ticketMedio = pedidos.length > 0 ? receitaTotal / pedidos.length : 0;
+        return {
+          receita: receitaTotal,
+          pedidos: pedidos.length,
+          clientes: clientes.length,
+          ticketMedio,
+          produtos: shopifyData.produtos.length
+        };
+      }, [fonteAtiva, shopifyData]);
+
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           {/* Bling API + Importar Dados (Admin only) */}
           {!isAdmin && (
             <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex items-center gap-2 animate-fade-in">
@@ -990,9 +1016,18 @@
     // ==========================================
     // SEÇÃO: FLUXO DE CAIXA
     // ==========================================
-    const FluxoCaixaSection = () => {
+    const FluxoCaixaSection = ({ fonteAtiva }) => {
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Evolução do Saldo Bancário</h2>
             <SectionCard>
@@ -1237,7 +1272,7 @@
       'Regulares': { acao: 'Manter engajamento via e-mail marketing', descricao: 'Newsletter quinzenal com dicas + promoções sazonais. Ofertas de kits em datas comemorativas.', prioridade: 'baixo', investimento: 'R$ 0 (automação existente)', roi: 'Manter taxa de recompra atual' }
     };
 
-    const MatrizRFMSection = () => {
+    const MatrizRFMSection = ({ fonteAtiva }) => {
       const [selectedSegmento, setSelectedSegmento] = useState(null);
       const [selectedCliente, setSelectedCliente] = useState(null);
       const [viewMode, setViewMode] = useState('matriz');
@@ -1283,6 +1318,15 @@
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           {/* Header */}
           <div className="flex flex-wrap justify-between items-center gap-3">
             <div>
@@ -1680,7 +1724,7 @@
     // ==========================================
     // SEÇÃO: ANÁLISE B2C (NOVA)
     // ==========================================
-    const AnaliseB2CSection = () => {
+    const AnaliseB2CSection = ({ fonteAtiva }) => {
       const [subTab, setSubTab] = useState('perfil');
 
       // Dados derivados B2C
@@ -1743,6 +1787,15 @@
 
       return (
         <div className="space-y-6">
+          {fonteAtiva === 'shopify' && (
+            <div className="mb-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-xl p-3 flex items-center gap-2">
+              <span className="text-lg">🛍️</span>
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Visualizando dados Shopify</p>
+                <p className="text-xs text-purple-500 dark:text-purple-400">Dados vindos diretamente da API Shopify</p>
+              </div>
+            </div>
+          )}
           {/* Sub-navegação */}
           <div className="flex gap-2 flex-wrap no-print">
             {subTabs.map(t => (
@@ -4434,6 +4487,34 @@
     };
 
     // ==========================================
+    // HOOK: DADOS SHOPIFY (fonte alternativa)
+    // ==========================================
+    const useShopifyData = () => {
+      const [data, setData] = useState({ pedidos: [], clientes: [], produtos: [], loading: true });
+
+      useEffect(() => {
+        const load = async () => {
+          try {
+            const [pedidosRes, clientesRes, produtosRes] = await Promise.all([
+              supabase.from('shopify_pedidos').select('*').order('data', { ascending: false }).limit(5000),
+              supabase.from('shopify_clientes').select('*').order('total_gasto', { ascending: false }).limit(5000),
+              supabase.from('shopify_produtos').select('*').limit(5000)
+            ]);
+            setData({
+              pedidos: pedidosRes.data || [],
+              clientes: clientesRes.data || [],
+              produtos: produtosRes.data || [],
+              loading: false
+            });
+          } catch(e) { setData(prev => ({...prev, loading: false})); }
+        };
+        load();
+      }, []);
+
+      return data;
+    };
+
+    // ==========================================
     // APP PRINCIPAL
     // ==========================================
     const App = () => {
@@ -4446,6 +4527,7 @@
       const [nome, setNome] = useState('');
       const [error, setError] = useState('');
       const [activeSection, setActiveSection] = useState('dashboard');
+      const [fonteAtiva, setFonteAtiva] = useState('bling'); // 'bling' or 'shopify'
       const [darkMode, setDarkMode] = useState(false);
       const [showUserMgmt, setShowUserMgmt] = useState(false);
       const [allUsers, setAllUsers] = useState([]);
@@ -4732,6 +4814,11 @@
                     ))}
                   </select>
                 )}
+                {/* Toggle Bling/Shopify */}
+                <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-full p-0.5">
+                  <button onClick={() => setFonteAtiva('bling')} className={`px-3 py-1 rounded-full text-[10px] font-medium transition ${fonteAtiva === 'bling' ? 'bg-green-600 text-white shadow' : 'text-gray-500 dark:text-gray-400'}`}>Bling</button>
+                  <button onClick={() => setFonteAtiva('shopify')} className={`px-3 py-1 rounded-full text-[10px] font-medium transition ${fonteAtiva === 'shopify' ? 'bg-purple-600 text-white shadow' : 'text-gray-500 dark:text-gray-400'}`}>Shopify</button>
+                </div>
                 <button onClick={() => setDarkMode(!darkMode)} className={`w-8 h-8 rounded-full flex items-center justify-center transition ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}>
                   {darkMode ? '☀️' : '🌙'}
                 </button>
@@ -4895,18 +4982,18 @@
               </div>
             )}
 
-            {activeSection === 'dashboard' && <DashboardSection onDataApplied={recarregar} periodo={periodo} isAdmin={isAdmin} />}
-            {activeSection === 'fluxo' && <FluxoCaixaSection periodo={periodo} />}
-            {activeSection === 'clientes' && <AnaliseClientesSection periodo={periodo} />}
-            {activeSection === 'b2c' && <AnaliseB2CSection periodo={periodo} />}
-            {activeSection === 'rfm' && <MatrizRFMSection periodo={periodo} />}
-            {activeSection === 'b2b' && <CanaisB2BSection periodo={periodo} />}
-            {activeSection === 'produtos' && <ProdutosSection periodo={periodo} />}
-            {activeSection === 'temporal' && <AnaliseTemporalSection periodo={periodo} />}
-            {activeSection === 'shopify' && <ShopifySection periodo={periodo} />}
-            {activeSection === 'funil' && <FunilSection periodo={periodo} />}
-            {activeSection === 'metas' && <MetasSection />}
-            {activeSection === 'alertas' && <AlertasSection />}
+            {activeSection === 'dashboard' && <DashboardSection onDataApplied={recarregar} periodo={periodo} isAdmin={isAdmin} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'fluxo' && <FluxoCaixaSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'clientes' && <AnaliseClientesSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'b2c' && <AnaliseB2CSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'rfm' && <MatrizRFMSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'b2b' && <CanaisB2BSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'produtos' && <ProdutosSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'temporal' && <AnaliseTemporalSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'shopify' && <ShopifySection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'funil' && <FunilSection periodo={periodo} fonteAtiva={fonteAtiva} />}
+            {activeSection === 'metas' && <MetasSection fonteAtiva={fonteAtiva} />}
+            {activeSection === 'alertas' && <AlertasSection fonteAtiva={fonteAtiva} />}
           </main>
 
           {/* Footer */}
