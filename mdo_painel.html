@@ -4012,6 +4012,428 @@
     };
 
     // ==========================================
+    // SEÇÃO: SHOPIFY
+    // ==========================================
+    const ShopifySection = ({ periodo }) => {
+      const hoje = new Date();
+      const ini30 = new Date(hoje); ini30.setDate(ini30.getDate() - 30);
+      const [dataIni, setDataIni] = useState(ini30.toISOString().split('T')[0]);
+      const [dataFim, setDataFim] = useState(hoje.toISOString().split('T')[0]);
+      const [pedidos, setPedidos] = useState([]);
+      const [clientes, setClientes] = useState([]);
+      const [produtos, setProdutos] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [modalOpen, setModalOpen] = useState(false);
+      const [modalTitle, setModalTitle] = useState('');
+      const [modalContent, setModalContent] = useState(null);
+
+      const carregarDados = useCallback(async () => {
+        setLoading(true);
+        try {
+          const [pedRes, cliRes, prodRes] = await Promise.all([
+            supabase.from('shopify_pedidos').select('*').gte('data', dataIni).lte('data', dataFim).order('data', { ascending: false }),
+            supabase.from('shopify_clientes').select('*').order('total_gasto', { ascending: false }),
+            supabase.from('shopify_produtos').select('*')
+          ]);
+          setPedidos(pedRes.data || []);
+          setClientes(cliRes.data || []);
+          setProdutos(prodRes.data || []);
+        } catch (e) { console.error('Erro Shopify:', e); }
+        setLoading(false);
+      }, [dataIni, dataFim]);
+
+      useEffect(() => { carregarDados(); }, [carregarDados]);
+
+      const setPeriodo = (di, df) => { setDataIni(di); setDataFim(df); };
+
+      const kpis = useMemo(() => {
+        const totalPedidos = pedidos.length;
+        const receita = pedidos.reduce((s, p) => s + (parseFloat(p.valor_total) || 0), 0);
+        const ticketMedio = totalPedidos > 0 ? receita / totalPedidos : 0;
+        return { totalPedidos, receita, totalClientes: clientes.length, totalProdutos: produtos.length, ticketMedio };
+      }, [pedidos, clientes, produtos]);
+
+      const top10Clientes = useMemo(() => clientes.slice(0, 10), [clientes]);
+
+      const top10Produtos = useMemo(() => {
+        return produtos.slice(0, 10).map(p => {
+          let primeiroPreco = 0;
+          try {
+            const variantes = typeof p.variantes === 'string' ? JSON.parse(p.variantes) : (p.variantes || []);
+            if (Array.isArray(variantes) && variantes.length > 0) {
+              primeiroPreco = parseFloat(variantes[0].price || variantes[0].preco || 0);
+            }
+          } catch (e) {}
+          return { ...p, primeiroPreco };
+        });
+      }, [produtos]);
+
+      const pedidosRecentes = useMemo(() => pedidos.slice(0, 20), [pedidos]);
+
+      const abrirCliente = (cli) => {
+        setModalTitle(`Cliente: ${cli.nome || cli.email || '—'}`);
+        setModalContent(
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Total Gasto</p>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(cli.total_gasto)}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Pedidos</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{cli.total_pedidos || 0}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Última Compra</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{cli.ultima_compra || '—'}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">UF</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{cli.uf || '—'}</p>
+              </div>
+            </div>
+            <div className="text-sm space-y-1">
+              <p><span className="text-gray-400">E-mail:</span> <span className="font-medium">{cli.email || '—'}</span></p>
+              <p><span className="text-gray-400">Telefone:</span> <span className="font-medium">{cli.telefone || '—'}</span></p>
+              <p><span className="text-gray-400">Cidade:</span> <span className="font-medium">{cli.cidade || '—'}</span></p>
+            </div>
+          </div>
+        );
+        setModalOpen(true);
+      };
+
+      const abrirProduto = (prod) => {
+        let variantes = [];
+        try {
+          variantes = typeof prod.variantes === 'string' ? JSON.parse(prod.variantes) : (prod.variantes || []);
+        } catch (e) {}
+        setModalTitle(`Produto: ${prod.titulo || '—'}`);
+        setModalContent(
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Status</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{prod.status || '—'}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Tipo</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{prod.tipo_produto || '—'}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-3">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Fornecedor</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{prod.fornecedor || '—'}</p>
+              </div>
+            </div>
+            {variantes.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Variantes ({variantes.length})</p>
+                <div className="space-y-1">
+                  {variantes.map((v, i) => (
+                    <div key={i} className="flex justify-between text-sm bg-gray-50 dark:bg-gray-750 rounded px-3 py-1">
+                      <span>{v.title || v.titulo || `Variante ${i + 1}`}</span>
+                      <span className="font-medium text-green-600">{formatCurrency(parseFloat(v.price || v.preco || 0))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+        setModalOpen(true);
+      };
+
+      if (loading) return (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+          <span className="ml-3 text-gray-500 dark:text-gray-400">Carregando dados Shopify...</span>
+        </div>
+      );
+
+      return (
+        <div className="space-y-4">
+          <DateRangePicker dataIni={dataIni} dataFim={dataFim} onChange={setPeriodo} />
+
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: 'Total Pedidos', value: formatNumber(kpis.totalPedidos), icon: '🛒', color: 'text-blue-600' },
+              { label: 'Receita Total', value: formatCurrency(kpis.receita), icon: '💰', color: 'text-green-600' },
+              { label: 'Clientes', value: formatNumber(kpis.totalClientes), icon: '👥', color: 'text-purple-600' },
+              { label: 'Produtos', value: formatNumber(kpis.totalProdutos), icon: '📦', color: 'text-orange-600' },
+              { label: 'Ticket Médio', value: formatCurrency(kpis.ticketMedio), icon: '🎫', color: 'text-teal-600' }
+            ].map((kpi, i) => (
+              <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 animate-slide-up">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">{kpi.icon}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{kpi.label}</span>
+                </div>
+                <p className={`text-xl font-bold ${kpi.color}`}>{kpi.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Pedidos Recentes */}
+          <SectionCard title="Pedidos Recentes (últimos 20)">
+            {pedidosRecentes.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhum pedido encontrado no período.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b dark:border-gray-700">
+                      <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">Nº</th>
+                      <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">Data</th>
+                      <th className="text-left py-2 px-2 text-gray-500 dark:text-gray-400">Cliente</th>
+                      <th className="text-right py-2 px-2 text-gray-500 dark:text-gray-400">Valor</th>
+                      <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400">Status</th>
+                      <th className="text-center py-2 px-2 text-gray-500 dark:text-gray-400">UF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pedidosRecentes.map((p, i) => (
+                      <tr key={i} className="border-b dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-750 transition">
+                        <td className="py-2 px-2 font-medium text-gray-800 dark:text-gray-200">#{p.numero || p.id}</td>
+                        <td className="py-2 px-2 text-gray-600 dark:text-gray-300">{p.data ? new Date(p.data).toLocaleDateString('pt-BR') : '—'}</td>
+                        <td className="py-2 px-2 text-gray-600 dark:text-gray-300">{p.cliente_nome || '—'}</td>
+                        <td className="py-2 px-2 text-right font-medium text-green-600">{formatCurrency(p.valor_total)}</td>
+                        <td className="py-2 px-2 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            p.status_financeiro === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                            p.status_financeiro === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                            p.status_financeiro === 'refunded' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                            'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>{p.status_financeiro || '—'}</span>
+                        </td>
+                        <td className="py-2 px-2 text-center text-gray-600 dark:text-gray-300">{p.uf || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Top 10 Clientes */}
+            <SectionCard title="Top 10 Clientes por Gasto">
+              {top10Clientes.length === 0 ? (
+                <p className="text-sm text-gray-400">Nenhum cliente encontrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {top10Clientes.map((cli, i) => (
+                    <div key={i} onClick={() => abrirCliente(cli)}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition group">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          i < 3 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>{i + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-green-600 transition">{cli.nome || cli.email || '—'}</p>
+                          <p className="text-[10px] text-gray-400">{cli.total_pedidos || 0} pedidos</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-green-600">{formatCurrency(cli.total_gasto)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Top 10 Produtos */}
+            <SectionCard title="Top 10 Produtos">
+              {top10Produtos.length === 0 ? (
+                <p className="text-sm text-gray-400">Nenhum produto encontrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {top10Produtos.map((prod, i) => (
+                    <div key={i} onClick={() => abrirProduto(prod)}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition group">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          i < 3 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>{i + 1}</span>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800 dark:text-gray-200 group-hover:text-orange-600 transition">{prod.titulo || '—'}</p>
+                          <p className="text-[10px] text-gray-400">{prod.tipo_produto || '—'}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-green-600">{formatCurrency(prod.primeiroPreco)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          <DetailModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle}>
+            {modalContent}
+          </DetailModal>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // SEÇÃO: FUNIL DE CONVERSÃO
+    // ==========================================
+    const FunilSection = ({ periodo }) => {
+      const [pedidos, setPedidos] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        const carregar = async () => {
+          setLoading(true);
+          try {
+            const { data } = await supabase.from('shopify_pedidos').select('valor_total, status_financeiro');
+            setPedidos(data || []);
+          } catch (e) { console.error('Erro funil:', e); }
+          setLoading(false);
+        };
+        carregar();
+      }, []);
+
+      const stats = useMemo(() => {
+        const totalPedidos = pedidos.length;
+        const receita = pedidos.reduce((s, p) => s + (parseFloat(p.valor_total) || 0), 0);
+        const pedidosPagos = pedidos.filter(p => p.status_financeiro === 'paid').length;
+        return { totalPedidos, receita, pedidosPagos };
+      }, [pedidos]);
+
+      // Dados de funil — sessões hardcoded, restante estimado proporcionalmente
+      const funnel = useMemo(() => {
+        const sessoes = 24973;
+        const vizProduto = Math.round(sessoes * 0.38);
+        const addCart = Math.round(sessoes * 0.12);
+        const iniCheckout = Math.round(sessoes * 0.045);
+        const comprou = stats.pedidosPagos || Math.round(sessoes * 0.0051);
+        return [
+          { label: 'Sessoes', value: sessoes, color: 'bg-blue-500', lightColor: 'bg-blue-100 dark:bg-blue-900/40', textColor: 'text-blue-700 dark:text-blue-300' },
+          { label: 'Visualizou Produto', value: vizProduto, color: 'bg-indigo-500', lightColor: 'bg-indigo-100 dark:bg-indigo-900/40', textColor: 'text-indigo-700 dark:text-indigo-300' },
+          { label: 'Adicionou ao Carrinho', value: addCart, color: 'bg-purple-500', lightColor: 'bg-purple-100 dark:bg-purple-900/40', textColor: 'text-purple-700 dark:text-purple-300' },
+          { label: 'Iniciou Checkout', value: iniCheckout, color: 'bg-orange-500', lightColor: 'bg-orange-100 dark:bg-orange-900/40', textColor: 'text-orange-700 dark:text-orange-300' },
+          { label: 'Comprou', value: comprou, color: 'bg-green-500', lightColor: 'bg-green-100 dark:bg-green-900/40', textColor: 'text-green-700 dark:text-green-300' }
+        ];
+      }, [stats]);
+
+      const maxVal = funnel[0]?.value || 1;
+
+      if (loading) return (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+          <span className="ml-3 text-gray-500 dark:text-gray-400">Carregando funil...</span>
+        </div>
+      );
+
+      return (
+        <div className="space-y-4">
+          {/* Aviso */}
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-3 flex items-start gap-2">
+            <span className="text-yellow-500 text-lg">⚠️</span>
+            <div>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Dados parcialmente estimados</p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-400">Sessoes e etapas intermediarias sao estimativas. Conecte Shopify Analytics para dados reais.</p>
+            </div>
+          </div>
+
+          {/* KPIs do funil */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Sessoes (est.)</p>
+              <p className="text-xl font-bold text-blue-600">{formatNumber(24973)}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Pedidos Pagos</p>
+              <p className="text-xl font-bold text-green-600">{formatNumber(stats.pedidosPagos)}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Taxa Conversao</p>
+              <p className="text-xl font-bold text-purple-600">{(stats.pedidosPagos / 24973 * 100).toFixed(2)}%</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Receita Total</p>
+              <p className="text-xl font-bold text-green-600">{formatCurrency(stats.receita)}</p>
+            </div>
+          </div>
+
+          {/* Funil Visual */}
+          <SectionCard title="Funil de Conversao">
+            <div className="space-y-3">
+              {funnel.map((stage, i) => {
+                const pct = (stage.value / maxVal) * 100;
+                const convFromPrev = i > 0 ? ((stage.value / funnel[i - 1].value) * 100).toFixed(1) : null;
+                const convFromTop = ((stage.value / maxVal) * 100).toFixed(2);
+                return (
+                  <div key={i} className="animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
+                    {i > 0 && (
+                      <div className="flex items-center justify-center my-1">
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-750 rounded-full px-3 py-0.5">
+                          ↓ {convFromPrev}% conversao
+                        </div>
+                      </div>
+                    )}
+                    <div className={`${stage.lightColor} rounded-xl p-3 transition-all duration-300`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`text-sm font-semibold ${stage.textColor}`}>{stage.label}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{formatNumber(stage.value)}</span>
+                          <span className="text-[10px] text-gray-400">{convFromTop}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className={`${stage.color} h-full rounded-full transition-all duration-700 ease-out`} style={{ width: `${Math.max(pct, 1)}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </SectionCard>
+
+          {/* Resumo */}
+          <SectionCard title="Resumo do Funil">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Maiores perdas</p>
+                <div className="space-y-2">
+                  {funnel.slice(1).map((stage, i) => {
+                    const prev = funnel[i];
+                    const perda = prev.value - stage.value;
+                    const perdaPct = ((perda / prev.value) * 100).toFixed(1);
+                    return (
+                      <div key={i} className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">{prev.label} → {stage.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-red-500 font-medium">-{formatNumber(perda)}</span>
+                          <span className="text-[10px] text-gray-400">({perdaPct}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Oportunidades</p>
+                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">●</span>
+                    <p>Se a taxa de carrinho subir 1%, sao +{formatNumber(Math.round(24973 * 0.01))} carrinhos potenciais</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">●</span>
+                    <p>Se o checkout converter 5% a mais, sao +{formatNumber(Math.round(funnel[3]?.value * 0.05))} vendas</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-500 mt-0.5">●</span>
+                    <p>Receita potencial com +1% conversao geral: {formatCurrency(stats.receita / (stats.pedidosPagos || 1) * Math.round(24973 * 0.01))}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+        </div>
+      );
+    };
+
+    // ==========================================
     // APP PRINCIPAL
     // ==========================================
     const App = () => {
@@ -4199,6 +4621,8 @@
         { id: 'b2b', label: 'Canais B2B', icon: '🏢' },
         { id: 'produtos', label: 'Produtos', icon: '📦' },
         { id: 'temporal', label: 'Análise Temporal', icon: '📅' },
+        { id: 'shopify', label: 'Shopify', icon: '🛍️' },
+        { id: 'funil', label: 'Funil', icon: '🔄' },
         { id: 'metas', label: 'Metas 90d', icon: '🎯' },
         { id: 'alertas', label: 'Alertas', icon: '⚠️' }
       ];
@@ -4479,6 +4903,8 @@
             {activeSection === 'b2b' && <CanaisB2BSection periodo={periodo} />}
             {activeSection === 'produtos' && <ProdutosSection periodo={periodo} />}
             {activeSection === 'temporal' && <AnaliseTemporalSection periodo={periodo} />}
+            {activeSection === 'shopify' && <ShopifySection periodo={periodo} />}
+            {activeSection === 'funil' && <FunilSection periodo={periodo} />}
             {activeSection === 'metas' && <MetasSection />}
             {activeSection === 'alertas' && <AlertasSection />}
           </main>
