@@ -3920,6 +3920,28 @@
         loadAllUsers();
       };
 
+      // Convidar usuário (admin cria conta e manda convite)
+      const [inviteEmail, setInviteEmail] = useState('');
+      const [inviteNome, setInviteNome] = useState('');
+      const [inviteRole, setInviteRole] = useState('leitor');
+      const [inviteStatus, setInviteStatus] = useState('');
+
+      const handleInvite = async (e) => {
+        e.preventDefault();
+        if (!inviteEmail) return;
+        setInviteStatus('enviando');
+        try {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
+            body: JSON.stringify({ email: inviteEmail, nome: inviteNome, role: inviteRole })
+          });
+          const data = await res.json();
+          if (data.error) { setInviteStatus('erro: ' + data.error); }
+          else { setInviteStatus('sucesso'); setInviteEmail(''); setInviteNome(''); loadAllUsers(); }
+        } catch (err) { setInviteStatus('erro: ' + err.message); }
+      };
+
       const toggleUserActive = async (userId, currentActive) => {
         await supabase.from('user_profiles').update({ ativo: !currentActive, updated_at: new Date().toISOString() }).eq('id', userId);
         loadAllUsers();
@@ -4047,21 +4069,7 @@
               <h1 className={`text-2xl font-semibold text-center mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Mundo dos Óleos</h1>
               <p className={`text-center mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Painel Estratégico de Consultoria</p>
 
-              {/* Tabs Login / Cadastro */}
-              <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button onClick={() => { setAuthMode('login'); setError(''); }} className={`flex-1 py-2 rounded-md text-sm font-medium transition ${authMode === 'login' ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>Entrar</button>
-                <button onClick={() => { setAuthMode('register'); setError(''); }} className={`flex-1 py-2 rounded-md text-sm font-medium transition ${authMode === 'register' ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>Cadastrar</button>
-              </div>
-
-              <form onSubmit={authMode === 'login' ? handleLogin : handleRegister}>
-                {authMode === 'register' && (
-                  <div className="mb-4">
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Nome</label>
-                    <input type="text" value={nome} onChange={(e) => setNome(e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'border-gray-300'}`}
-                      placeholder="Seu nome" />
-                  </div>
-                )}
+              <form onSubmit={handleLogin}>
                 <div className="mb-4">
                   <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>E-mail</label>
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
@@ -4072,13 +4080,14 @@
                   <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Senha</label>
                   <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'border-gray-300'}`}
-                    placeholder={authMode === 'register' ? 'Mínimo 6 caracteres' : 'Sua senha'} />
+                    placeholder="Sua senha" />
                 </div>
                 {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
                 <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition shadow-md">
-                  {authMode === 'login' ? 'Entrar' : 'Criar conta'}
+                  Entrar
                 </button>
               </form>
+              <p className={`text-center text-xs mt-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Acesso somente por convite do administrador</p>
               <div className="flex justify-between items-center mt-6">
                 <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>Consultoria Estratégica 90 dias</p>
                 <button onClick={() => setDarkMode(!darkMode)} className={`text-xs px-3 py-1 rounded-full ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
@@ -4237,7 +4246,37 @@
                     </tbody>
                   </table>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">O primeiro usuário cadastrado recebe automaticamente o nível Admin. Novos usuários entram como Leitor.</p>
+                {/* Formulário de Convite */}
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">Convidar novo usuário</h4>
+                  <form onSubmit={handleInvite} className="flex flex-wrap gap-2 items-end">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">Nome</label>
+                      <input type="text" value={inviteNome} onChange={e => setInviteNome(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" placeholder="Nome do usuário" />
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">E-mail *</label>
+                      <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required
+                        className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" placeholder="email@exemplo.com" />
+                    </div>
+                    <div className="w-28">
+                      <label className="block text-[10px] text-gray-500 dark:text-gray-400 mb-1">Nível</label>
+                      <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                        <option value="leitor">Leitor</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <button type="submit" disabled={inviteStatus === 'enviando'}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50">
+                      {inviteStatus === 'enviando' ? '⏳ Enviando...' : '📧 Convidar'}
+                    </button>
+                  </form>
+                  {inviteStatus === 'sucesso' && <p className="text-xs text-green-600 dark:text-green-400 mt-2 animate-fade-in">Convite enviado com sucesso! O usuário receberá um e-mail para definir a senha.</p>}
+                  {inviteStatus.startsWith('erro') && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{inviteStatus}</p>}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">Somente admins podem convidar novos usuários. O convidado recebe um e-mail para definir a senha.</p>
               </SectionCard>
             </div>
           )}
