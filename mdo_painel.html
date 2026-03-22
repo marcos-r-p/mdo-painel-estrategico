@@ -4185,9 +4185,9 @@
         setLoading(true);
         try {
           const [pedRes, cliRes, prodRes] = await Promise.all([
-            supabase.from('shopify_pedidos').select('*').gte('data', dataIni).lte('data', dataFim).order('data', { ascending: false }),
-            supabase.from('shopify_clientes').select('*').order('total_gasto', { ascending: false }),
-            supabase.from('shopify_produtos').select('*')
+            supabase.from('shopify_pedidos').select('*').gte('data', dataIni + 'T00:00:00').lte('data', dataFim + 'T23:59:59').order('data', { ascending: false }).limit(10000),
+            supabase.from('shopify_clientes').select('*').order('total_gasto', { ascending: false }).limit(5000),
+            supabase.from('shopify_produtos').select('*').limit(6000)
           ]);
           setPedidos(pedRes.data || []);
           setClientes(cliRes.data || []);
