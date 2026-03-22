@@ -4938,81 +4938,90 @@
     // TAB ANÁLISE IA — DASHBOARD ESTRATÉGICO
     // ==========================================
     const TabAnaliseIA = ({ dados, fonteAtiva }) => {
-      const BREAKEVEN = (dados.custos?.totalFixo || 20891) + (dados.custos?.totalVariavel || 21250) + (dados.custos?.totalFinanceiro || 7439) + (dados.custos?.impostos || 6780);
+      // Proteção contra dados undefined
+      const d = dados || {};
+      const dre = d.dre || { resultado: -28466, receitaBruta: 58935, receitaLiquida: 52155, cmv: 21250, lucroBruto: 30905, impostos: 6780, despesasOp: {} };
+      const receita = d.receita || { bruta: 58935, ticketMedio: 177 };
+      const estoque = d.estoque || { semEstoque: 6126, totalSKUs: 8159, valorCusto: 150000 };
+      const empresa = d.empresa || { taxaRecompra: 44, baseClientes: 49000 };
+      const regioes = d.regioes || [{ uf: 'DF', percent: 52 }];
+      const custos = d.custos || {};
+
+      const BREAKEVEN = (custos.totalFixo || 20891) + (custos.totalVariavel || 21250) + (custos.totalFinanceiro || 7439) + (custos.impostos || 6780);
 
       // ===== 1. PAINEL SINAIS VITAIS =====
       const scores = useMemo(() => {
-        const deficitPercent = Math.abs(dados.dre.resultado) / dados.receita.bruta * 100;
+        const deficitPercent = Math.abs(dre.resultado) / receita.bruta * 100;
         const saudeScore = deficitPercent > 50 ? 2 : deficitPercent > 30 ? 4 : deficitPercent > 10 ? 6 : 8;
-        const quedaReceita = Math.abs(dados.comparativo?.variacaoReceita || 15);
+        const quedaReceita = Math.abs(d.comparativo?.variacaoReceita || 15);
         const ecommerceScore = quedaReceita > 30 ? 3 : quedaReceita > 15 ? 5 : 7;
-        const rupturaPercent = (dados.estoque.semEstoque / dados.estoque.totalSKUs) * 100;
+        const rupturaPercent = (estoque.semEstoque / (estoque.totalSKUs || 1)) * 100;
         const portfolioScore = rupturaPercent > 70 ? 5 : rupturaPercent > 50 ? 6 : 8;
-        const recompraScore = dados.empresa.taxaRecompra > 40 ? 7 : dados.empresa.taxaRecompra > 25 ? 5 : 3;
-        const alertasCriticos = (dados.alertas || []).filter(a => a.tipo === 'critico').length;
+        const recompraScore = empresa.taxaRecompra > 40 ? 7 : empresa.taxaRecompra > 25 ? 5 : 3;
+        const alertasCriticos = (d.alertas || []).filter(a => a.tipo === 'critico').length;
         const gestaoScore = alertasCriticos >= 3 ? 3 : alertasCriticos === 2 ? 4 : alertasCriticos === 1 ? 6 : 8;
         return [
-          { nome: "Saúde Financeira", score: saudeScore, desc: `Déficit de ${formatCurrency(Math.abs(dados.dre.resultado))}/mês` },
+          { nome: "Saúde Financeira", score: saudeScore, desc: `Déficit de ${formatCurrency(Math.abs(dre.resultado))}/mês` },
           { nome: "Comercial / CRM", score: 5, desc: "R$ 169k perdidos vs R$ 58k vendidos/mês" },
-          { nome: "E-commerce", score: ecommerceScore, desc: `Receita ${dados.comparativo?.variacaoReceita || -15}% vs mês anterior` },
+          { nome: "E-commerce", score: ecommerceScore, desc: `Receita ${d.comparativo?.variacaoReceita || -15}% vs mês anterior` },
           { nome: "Portfólio", score: portfolioScore, desc: `${rupturaPercent.toFixed(0)}% dos SKUs sem estoque` },
-          { nome: "Base de Clientes", score: recompraScore, desc: `${dados.empresa.taxaRecompra}% recompra — ${formatNumber(dados.empresa.baseClientes)} clientes` },
+          { nome: "Base de Clientes", score: recompraScore, desc: `${empresa.taxaRecompra}% recompra — ${formatNumber(empresa.baseClientes)} clientes` },
           { nome: "Gestão Operacional", score: gestaoScore, desc: `${alertasCriticos} alertas críticos ativos` },
         ];
-      }, [dados]);
+      }, [d, dre, receita, estoque, empresa]);
 
       const scoreColor = (s) => s <= 4 ? 'text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400' : s <= 6 ? 'text-orange-500 bg-orange-50 dark:bg-orange-950 dark:text-orange-400' : 'text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400';
       const scoreBarColor = (s) => s <= 4 ? 'bg-red-500' : s <= 6 ? 'bg-orange-400' : 'bg-green-500';
 
       // ===== 2. DRE =====
       const linhasDRE = [
-        { label: "Receita Bruta", valor: dados.dre.receitaBruta, tipo: "positivo" },
-        { label: "(−) Impostos", valor: dados.dre.impostos, tipo: "negativo" },
-        { label: "= Receita Líquida", valor: dados.dre.receitaLiquida, tipo: "subtotal" },
-        { label: "(−) CMV", valor: dados.dre.cmv, tipo: "negativo" },
-        { label: "= Lucro Bruto", valor: dados.dre.lucroBruto, tipo: "subtotal" },
-        { label: "(−) Marketing", valor: dados.dre.despesasOp?.marketing || 8850, tipo: "negativo" },
-        { label: "(−) Ocupação", valor: dados.dre.despesasOp?.ocupacao || 3724, tipo: "negativo" },
-        { label: "(−) Logística", valor: dados.dre.despesasOp?.logistica || 4859, tipo: "negativo" },
-        { label: "(−) Pessoal", valor: dados.dre.despesasOp?.pessoal || 0, tipo: "negativo" },
-        { label: "(−) Financeiras", valor: dados.dre.despesasOp?.financeiras || 7439, tipo: "negativo" },
-        { label: "(−) Outras", valor: dados.dre.despesasOp?.outras || 2308, tipo: "negativo" },
-        { label: "= RESULTADO", valor: dados.dre.resultado, tipo: dados.dre.resultado >= 0 ? "positivo" : "critico" },
+        { label: "Receita Bruta", valor: dre.receitaBruta, tipo: "positivo" },
+        { label: "(−) Impostos", valor: dre.impostos, tipo: "negativo" },
+        { label: "= Receita Líquida", valor: dre.receitaLiquida, tipo: "subtotal" },
+        { label: "(−) CMV", valor: dre.cmv, tipo: "negativo" },
+        { label: "= Lucro Bruto", valor: dre.lucroBruto, tipo: "subtotal" },
+        { label: "(−) Marketing", valor: dre.despesasOp?.marketing || 8850, tipo: "negativo" },
+        { label: "(−) Ocupação", valor: dre.despesasOp?.ocupacao || 3724, tipo: "negativo" },
+        { label: "(−) Logística", valor: dre.despesasOp?.logistica || 4859, tipo: "negativo" },
+        { label: "(−) Pessoal", valor: dre.despesasOp?.pessoal || 0, tipo: "negativo" },
+        { label: "(−) Financeiras", valor: dre.despesasOp?.financeiras || 7439, tipo: "negativo" },
+        { label: "(−) Outras", valor: dre.despesasOp?.outras || 2308, tipo: "negativo" },
+        { label: "= RESULTADO", valor: dre.resultado, tipo: dre.resultado >= 0 ? "positivo" : "critico" },
       ];
-      const maxDRE = Math.max(...linhasDRE.map(l => Math.abs(l.valor)));
-      const gapBreakeven = BREAKEVEN - dados.receita.bruta;
+      const maxDRE = Math.max(...linhasDRE.map(l => Math.abs(l.valor || 0)));
+      const gapBreakeven = BREAKEVEN - receita.bruta;
 
       // ===== 3. CRM =====
       const CRM = { criadas: 284, vendidas: 132, perdidas: 266, valorPerdido: 169000, valorVendido: 58935, ticketCRM: 447, ticketSite: 177, baseClientes: 49088, taxaRecompra: 44.2 };
       const cenariosCRM = [10, 20, 30, 50].map(pct => ({
         pct, ganho: CRM.valorPerdido * pct / 100,
-        receitaTotal: dados.receita.bruta + (CRM.valorPerdido * pct / 100),
-        atingeBreakeven: (dados.receita.bruta + CRM.valorPerdido * pct / 100) >= BREAKEVEN
+        receitaTotal: receita.bruta + (CRM.valorPerdido * pct / 100),
+        atingeBreakeven: (receita.bruta + CRM.valorPerdido * pct / 100) >= BREAKEVEN
       }));
 
       // ===== 4. GAPS =====
       const gaps = useMemo(() => {
         const g = [];
-        if (dados.dre.resultado < 0) g.push({ urgencia: "critico", titulo: "Déficit operacional", impacto: Math.abs(dados.dre.resultado), acao: "Reduzir custos fixos + aumentar receita", prazo: "30 dias" });
-        const webiCusto = (dados.custos?.fixos || []).find(c => c.item?.includes("Webi"));
-        if (webiCusto) g.push({ urgencia: "critico", titulo: `Webi = ${((webiCusto.valor/dados.receita.bruta)*100).toFixed(0)}% da receita`, impacto: webiCusto.valor * 12, acao: "Exigir ROI até 31/03. Renegociar para % da receita", prazo: "7 dias" });
-        if (dados.regioes[0]?.percent > 40) g.push({ urgencia: "alto", titulo: `${dados.regioes[0].uf} = ${dados.regioes[0].percent}% da receita`, impacto: dados.receita.bruta * 0.15, acao: "Campanhas SP, MG, RJ", prazo: "60 dias" });
-        if (dados.estoque.semEstoque / dados.estoque.totalSKUs > 0.5) g.push({ urgencia: "alto", titulo: "75% dos SKUs sem estoque", impacto: dados.estoque.valorCusto * 0.1, acao: "Estoque mínimo para Curva A", prazo: "30 dias" });
+        if (dre.resultado < 0) g.push({ urgencia: "critico", titulo: "Déficit operacional", impacto: Math.abs(dre.resultado), acao: "Reduzir custos fixos + aumentar receita", prazo: "30 dias" });
+        const webiCusto = (custos.fixos || []).find(c => c.item?.includes("Webi"));
+        if (webiCusto) g.push({ urgencia: "critico", titulo: `Webi = ${((webiCusto.valor/receita.bruta)*100).toFixed(0)}% da receita`, impacto: webiCusto.valor * 12, acao: "Exigir ROI até 31/03. Renegociar para % da receita", prazo: "7 dias" });
+        if (regioes[0]?.percent > 40) g.push({ urgencia: "alto", titulo: `${regioes[0].uf} = ${regioes[0].percent}% da receita`, impacto: receita.bruta * 0.15, acao: "Campanhas SP, MG, RJ", prazo: "60 dias" });
+        if (estoque.totalSKUs > 0 && estoque.semEstoque / estoque.totalSKUs > 0.5) g.push({ urgencia: "alto", titulo: "75% dos SKUs sem estoque", impacto: (estoque.valorCusto || 150000) * 0.1, acao: "Estoque mínimo para Curva A", prazo: "30 dias" });
         g.push({ urgencia: "alto", titulo: "Receita em queda", impacto: 15000, acao: "Campanha reativação base + WhatsApp inativos 30+ dias", prazo: "15 dias" });
         return g;
-      }, [dados]);
+      }, [dre, receita, custos, regioes, estoque]);
 
       // ===== 5. SIMULADOR =====
       const [sim, setSim] = useState({ taxaConversao: 1.8, recuperacaoCRM: 20, reativacaoBase: 5, clientesB2B: 5, ticketB2B: 2500, crescimentoOrganico: 10 });
       const simResult = useMemo(() => {
-        const sessoes = 24973, ticket = dados.receita.ticketMedio, base = dados.receita.bruta;
+        const sessoes = 24973, ticket = receita.ticketMedio || 177, base = receita.bruta;
         const cro = Math.max(0, (sim.taxaConversao/100 - 0.005) * sessoes * ticket);
         const crm = 169000 * sim.recuperacaoCRM / 100;
-        const reativ = (dados.empresa.baseClientes * sim.reativacaoBase / 100) * ticket;
+        const reativ = (empresa.baseClientes * sim.reativacaoBase / 100) * ticket;
         const b2b = sim.clientesB2B * sim.ticketB2B;
         const org = base * sim.crescimentoOrganico / 100;
         return { base, cro, crm, reativ, b2b, org, total: base + cro + crm + reativ + b2b + org };
-      }, [sim, dados]);
+      }, [sim, receita, empresa]);
 
       // ===== 6. PLANO DE AÇÃO =====
       const acoes = [
