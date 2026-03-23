@@ -3,7 +3,6 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { fetchAllRDStationData, fetchCRMDashboard } from '../api/rdstation'
-import type { CRMData } from '../../types/domain'
 
 export function useAllRDStationData() {
   return useQuery({
@@ -15,7 +14,7 @@ export function useAllRDStationData() {
 
 export function useCRMDashboard(periodo?: string, rdToken?: string) {
   return useQuery({
-    queryKey: ['crm-dashboard', periodo ?? 'default'],
+    queryKey: ['rdstation', 'crm-dashboard', periodo ?? 'default'],
     queryFn: () => fetchCRMDashboard(periodo, rdToken),
     staleTime: 5 * 60 * 1000,
   })

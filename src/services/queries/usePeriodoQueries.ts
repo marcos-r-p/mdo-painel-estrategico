@@ -1,12 +1,12 @@
 // ─── Periodo Composition Hook ────────────────────────────────
 // Composes useResumoMensal + useDadosMes with periodo selection state.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useResumoMensal, useDadosMes } from './useDashboardQueries'
 
 export function usePeriodo() {
   const resumo = useResumoMensal()
-  const meses = resumo.data?.map((r) => r.mes) ?? []
+  const meses = useMemo(() => resumo.data?.map((r) => r.mes) ?? [], [resumo.data])
   const [mesSelecionado, setMesSelecionado] = useState<string | null>(null)
 
   useEffect(() => {

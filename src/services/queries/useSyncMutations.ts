@@ -49,17 +49,8 @@ export function usePlatformSync(platform: string) {
         queryClient.invalidateQueries({ queryKey: ['shopify'] })
       } else if (platform === 'rdstation') {
         queryClient.invalidateQueries({ queryKey: ['rdstation'] })
-        queryClient.invalidateQueries({ queryKey: ['crm-dashboard'] })
       }
-      queryClient.invalidateQueries({ queryKey: ['connection-status'] })
-    },
-    onError: (err: Error) => {
-      setProgress((prev) => ({
-        ...prev,
-        isRunning: false,
-        currentStep: null,
-        error: err.message,
-      }))
+      queryClient.invalidateQueries({ queryKey: ['dashboard', 'connection-status'] })
     },
   })
 

@@ -6,7 +6,7 @@ import { fetchResumoMensal, fetchDadosMes, fetchConnectionStatus } from '../api/
 
 export function useResumoMensal() {
   return useQuery({
-    queryKey: ['resumo-mensal'],
+    queryKey: ['dashboard', 'resumo-mensal'],
     queryFn: fetchResumoMensal,
     staleTime: 5 * 60 * 1000,
   })
@@ -14,16 +14,17 @@ export function useResumoMensal() {
 
 export function useDadosMes(mes: string | null) {
   return useQuery({
-    queryKey: ['dados-mes', mes],
+    queryKey: ['dashboard', 'dados-mes', mes],
     queryFn: () => fetchDadosMes(mes!),
     enabled: !!mes,
     staleTime: 5 * 60 * 1000,
   })
 }
 
+/** Connection status refreshes more frequently (30s) since it's lightweight */
 export function useConnectionStatus() {
   return useQuery({
-    queryKey: ['connection-status'],
+    queryKey: ['dashboard', 'connection-status'],
     queryFn: fetchConnectionStatus,
     staleTime: 30 * 1000,
   })
