@@ -45,11 +45,14 @@ Deno.serve(async (req: Request) => {
       const stagesRes = await fetch(`${RD_BASE}/deal_stages?token=${token}`)
       const stagesData = await stagesRes.json()
 
-      if (Array.isArray(stagesData)) {
-        const rows = stagesData.map((s: any, i: number) => ({
+      // RD Station may return { deal_stages: [...] } or plain array
+      const stagesList = Array.isArray(stagesData) ? stagesData : (stagesData.deal_stages || stagesData.stages || [])
+
+      if (Array.isArray(stagesList) && stagesList.length > 0) {
+        const rows = stagesList.map((s: any, i: number) => ({
           rdstation_id: s.id || s._id,
-          name: s.name,
-          stage_order: s.order ?? i,
+          name: s.name || s.nickname,
+          stage_order: s.order ?? s.position ?? i,
           deals_count: s.deals_count ?? 0,
           synced_at: new Date().toISOString(),
         }))
@@ -59,6 +62,33 @@ Deno.serve(async (req: Request) => {
           .upsert(rows, { onConflict: 'rdstation_id' })
 
         results.stages = error ? { error: error.message } : { synced: rows.length }
+      } else {
+        // Fallback: derive stages from deals
+        const { data: stageRows } = await supabase.rpc('_noop', {}).maybeSingle()  // no-op
+        const { data: derivedStages } = await supabase
+          .from('rdstation_deals')
+          .select('stage_name')
+
+        if (derivedStages) {
+          const stageMap: Record<string, number> = {}
+          derivedStages.forEach((d: any) => {
+            if (d.stage_name) stageMap[d.stage_name] = (stageMap[d.stage_name] || 0) + 1
+          })
+          const STAGE_ORDER: Record<string, number> = {
+            'Sem Contato': 1, 'Contato Feito': 2, 'Negociação Iniciada': 3,
+            'Orçamento Realizado': 4, 'Aguardando Pagamento': 5, 'Pagamento Efetuado': 6,
+          }
+          const rows = Object.entries(stageMap).map(([name, count], i) => ({
+            rdstation_id: `derived_${name.replace(/\s/g, '_').toLowerCase()}`,
+            name,
+            stage_order: STAGE_ORDER[name] ?? (10 + i),
+            deals_count: count,
+            synced_at: new Date().toISOString(),
+          }))
+
+          await supabase.from('rdstation_stages').upsert(rows, { onConflict: 'rdstation_id' })
+          results.stages = { synced: rows.length, source: 'derived_from_deals' }
+        }
       }
     }
 
@@ -89,23 +119,30 @@ Deno.serve(async (req: Request) => {
         // Process in batches of 500
         for (let i = 0; i < allDeals.length; i += 500) {
           const batch = allDeals.slice(i, i + 500)
-          const rows = batch.map((d: any) => ({
-            rdstation_id: d.id || d._id,
-            name: d.name,
-            amount: d.amount ?? d.deal_value ?? 0,
-            stage_id: d.deal_stage?.id || d.deal_stage_id || null,
-            stage_name: d.deal_stage?.name || d.stage_name || null,
-            win: d.win ?? false,
-            closed: d.closed ?? (d.win === true || d.deal_lost != null),
-            user_name: d.user?.name || d.user_name || null,
-            deal_source: d.deal_source?.name || d.deal_source || null,
-            contact_name: d.contacts?.[0]?.name || d.contact_name || null,
-            contact_email: d.contacts?.[0]?.email || d.contact_email || null,
-            loss_reason: d.deal_lost_reason || d.loss_reason || null,
-            created_at: d.created_at,
-            closed_at: d.closed_at || d.last_activity_at || null,
-            synced_at: new Date().toISOString(),
-          }))
+          const rows = batch.map((d: any) => {
+            // RD Station API: deal_lost is truthy when deal was lost
+            const hasLossReason = !!(d.deal_lost_reason || d.deal_lost?.name || d.loss_reason)
+            const isWon = d.win === true
+            const isClosed = isWon || hasLossReason || d.closed === true
+
+            return {
+              rdstation_id: d.id || d._id,
+              name: d.name,
+              amount: d.amount_montly_recurring_revenue ?? d.amount_unique ?? d.amount_total ?? d.deal_value ?? d.amount ?? 0,
+              stage_id: d.deal_stage?.id || d.deal_stage_id || null,
+              stage_name: d.deal_stage?.name || d.stage_name || null,
+              win: isWon,
+              closed: isClosed,
+              user_name: d.user?.name || d.user_name || null,
+              deal_source: d.deal_source?.name || d.campaign?.name || d.deal_source || null,
+              contact_name: d.contacts?.[0]?.name || d.contact_name || null,
+              contact_email: d.contacts?.[0]?.emails?.[0]?.email || d.contacts?.[0]?.email || d.contact_email || null,
+              loss_reason: (typeof d.deal_lost_reason === 'object' ? d.deal_lost_reason?.name : d.deal_lost_reason) || d.deal_lost?.name || d.loss_reason || null,
+              created_at: d.created_at,
+              closed_at: d.closed_at || (isClosed ? d.last_activity_at : null),
+              synced_at: new Date().toISOString(),
+            }
+          })
 
           await supabase
             .from('rdstation_deals')
