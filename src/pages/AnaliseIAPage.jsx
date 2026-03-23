@@ -1,12 +1,10 @@
 import { useState, useMemo } from 'react';
 import { DADOS } from '../data/constants';
-import { formatCurrency, formatNumber } from '../lib/formatters';
+import { formatCurrency, formatNumber, formatPercent } from '../lib/formatters';
 import SectionCard from '../components/ui/SectionCard';
-import ProgressBar from '../components/ui/ProgressBar';
 import Badge from '../components/ui/Badge';
 
-/* ─── helpers ─── */
-const scoreColor = (v) => (v <= 4 ? 'red' : v <= 6 ? 'orange' : 'green');
+/* ─── Score helpers ─── */
 const scoreBg = (v) =>
   v <= 4
     ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800'
@@ -15,591 +13,703 @@ const scoreBg = (v) =>
       : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
 const scoreText = (v) =>
   v <= 4
-    ? 'text-red-700 dark:text-red-400'
+    ? 'text-red-600 dark:text-red-400'
     : v <= 6
-      ? 'text-orange-700 dark:text-orange-400'
-      : 'text-green-700 dark:text-green-400';
+      ? 'text-orange-500 dark:text-orange-400'
+      : 'text-green-600 dark:text-green-400';
+const scoreBarBg = (v) =>
+  v <= 4 ? 'bg-red-500' : v <= 6 ? 'bg-orange-400' : 'bg-green-500';
 
-export default function AnaliseIAPage({ dados, fonteAtiva }) {
-  const d = dados || {};
-  const dre = d.dre || {};
-  const despOp = dre.despesasOp || {};
-  const custos = d.custos || {};
-  const receita = d.receita || {};
-  const comparativo = d.comparativo || {};
-  const canais = d.canais || {};
-  const curvaABC = d.curvaABC || {};
-  const topProdutos = d.topProdutos || [];
-  const estoque = d.estoque || {};
-  const aportes = d.aportes || {};
-  const alertas = d.alertas || [];
-  const metas = d.metas || {};
+/* ─── Breakeven ─── */
+const BREAKEVEN = DADOS.custos.totalFixo + DADOS.custos.totalVariavel +
+  DADOS.custos.totalFinanceiro + DADOS.custos.impostos;
 
-  /* ─── 1. Sinais Vitais ─── */
-  const sinaisVitais = useMemo(() => {
-    const resultado = dre.resultado || 0;
-    const recBruta = dre.receitaBruta || 1;
-    const financeiro = Math.max(0, Math.min(10, Math.round(10 + (resultado / recBruta) * 10)));
+/* ─── CRM Constants (RD Station not yet in Supabase) ─── */
+const CRM = {
+  criadas: 284, vendidas: 132, perdidas: 266,
+  valorPerdido: 169000, valorVendido: 58935,
+  ticketCRM: 447, ticketSite: 177,
+  baseClientes: 49088, taxaRecompra: 44.2
+};
 
-    const varRec = comparativo.variacaoReceita || 0;
-    const comercial = Math.max(0, Math.min(10, Math.round(5 + varRec / 10)));
+/* ═══════════════════════════════════════════ */
+/* 1. PAINEL SINAIS VITAIS                    */
+/* ═══════════════════════════════════════════ */
+function PainelSinaisVitais({ dados }) {
+  const scores = useMemo(() => {
+    const deficitPercent = Math.abs(dados.dre.resultado) / dados.receita.bruta * 100;
+    const saudeScore = deficitPercent > 50 ? 2 : deficitPercent > 30 ? 4 : deficitPercent > 10 ? 6 : 8;
 
-    const canalPrinc = (canais.atuais || [])[0];
-    const ecommerce = canalPrinc ? Math.max(0, Math.min(10, Math.round((canalPrinc.percent || 0) / 15 + 2))) : 5;
+    const quedaReceita = Math.abs(dados.comparativo.variacaoReceita);
+    const ecommerceScore = quedaReceita > 30 ? 3 : quedaReceita > 15 ? 5 : 7;
 
-    const totalABC = (curvaABC.classeA || 0) + (curvaABC.classeB || 0) + (curvaABC.classeC || 0);
-    const portfolio = totalABC > 200 ? 7 : totalABC > 100 ? 5 : 3;
+    const rupturaPercent = (dados.estoque.semEstoque / dados.estoque.totalSKUs) * 100;
+    const portfolioScore = rupturaPercent > 70 ? 5 : rupturaPercent > 50 ? 6 : 8;
 
-    const taxa = d.empresa?.taxaRecompra || 0;
-    const baseClientes = taxa > 40 ? 7 : taxa > 25 ? 5 : 3;
+    const recompraScore = dados.empresa.taxaRecompra > 40 ? 7 : dados.empresa.taxaRecompra > 25 ? 5 : 3;
 
-    const totalFixo = custos.totalFixo || 0;
-    const gestao = totalFixo < 15000 ? 7 : totalFixo < 25000 ? 5 : 3;
+    const alertasCriticos = dados.alertas.filter(a => a.tipo === 'critico').length;
+    const gestaoScore = alertasCriticos >= 3 ? 3 : alertasCriticos === 2 ? 4 : alertasCriticos === 1 ? 6 : 8;
 
     return [
-      { nome: 'Saude Financeira', score: financeiro, desc: 'DRE, fluxo, margem' },
-      { nome: 'Comercial / CRM', score: comercial, desc: 'Vendas, conversao, funil' },
-      { nome: 'E-commerce', score: ecommerce, desc: 'Shopify, canais, trafego' },
-      { nome: 'Portfolio', score: portfolio, desc: 'Curva ABC, categorias' },
-      { nome: 'Base Clientes', score: baseClientes, desc: 'Recompra, segmentacao' },
-      { nome: 'Gestao Operacional', score: gestao, desc: 'Custos, processos, equipe' },
+      { nome: 'Saude financeira', score: saudeScore, desc: `Deficit de ${formatCurrency(Math.abs(dados.dre.resultado))}/mes` },
+      { nome: 'Comercial / CRM', score: 5, desc: 'R$ 169k perdidos vs R$ 58k vendidos/mes' },
+      { nome: 'E-commerce', score: ecommerceScore, desc: `Receita ${formatPercent(dados.comparativo.variacaoReceita)} vs mes anterior` },
+      { nome: 'Portfolio', score: portfolioScore, desc: `${rupturaPercent.toFixed(0)}% dos SKUs sem estoque` },
+      { nome: 'Base de clientes', score: recompraScore, desc: `${dados.empresa.taxaRecompra}% recompra — ${formatNumber(dados.empresa.baseClientes)} clientes` },
+      { nome: 'Gestao operacional', score: gestaoScore, desc: `${alertasCriticos} alertas criticos ativos` },
     ];
-  }, [dre, comparativo, canais, curvaABC, custos, d.empresa]);
-
-  /* ─── 2. DRE Cascata ─── */
-  const dreLinhas = useMemo(() => {
-    const rb = dre.receitaBruta || 0;
-    return [
-      { label: 'Receita Bruta', valor: rb, tipo: 'positivo' },
-      { label: 'Impostos', valor: dre.impostos || 0, tipo: 'negativo' },
-      { label: 'Receita Liquida', valor: dre.receitaLiquida || 0, tipo: 'subtotal' },
-      { label: 'CMV', valor: dre.cmv || 0, tipo: 'negativo' },
-      { label: 'Lucro Bruto', valor: dre.lucroBruto || 0, tipo: 'subtotal' },
-      { label: 'Marketing', valor: despOp.marketing || 0, tipo: 'negativo' },
-      { label: 'Ocupacao', valor: despOp.ocupacao || 0, tipo: 'negativo' },
-      { label: 'Logistica', valor: despOp.logistica || 0, tipo: 'negativo' },
-      { label: 'Pessoal', valor: despOp.pessoal || 0, tipo: 'negativo' },
-      { label: 'Financeiras', valor: despOp.financeiras || 0, tipo: 'negativo' },
-      { label: 'Outras', valor: despOp.outras || 0, tipo: 'negativo' },
-      { label: 'Resultado', valor: dre.resultado || 0, tipo: 'resultado' },
-    ];
-  }, [dre, despOp]);
-
-  const maxDRE = useMemo(
-    () => Math.max(...dreLinhas.map((l) => Math.abs(l.valor)), 1),
-    [dreLinhas],
-  );
-
-  /* ─── 3. CRM ─── */
-  const crm = useMemo(() => {
-    const criadas = 284;
-    const vendidas = 132;
-    const perdidas = 266;
-    const valorVendido = 58000;
-    const valorPerdido = 169000;
-    const ticketCRM = 447;
-    const ticketSite = 177;
-    const cenarios = [10, 20, 30, 50].map((p) => ({
-      percent: p,
-      deals: Math.round(perdidas * p / 100),
-      valor: Math.round(valorPerdido * p / 100),
-    }));
-    return { criadas, vendidas, perdidas, valorVendido, valorPerdido, ticketCRM, ticketSite, cenarios };
-  }, []);
-
-  /* ─── 4. Portfolio ─── */
-  const abc = useMemo(() => {
-    const a = curvaABC.classeA || 0;
-    const b = curvaABC.classeB || 0;
-    const c = curvaABC.classeC || 0;
-    const total = curvaABC.total || a + b + c || 1;
-    return { a, b, c, total };
-  }, [curvaABC]);
-
-  /* ─── 5. Gaps ─── */
-  const gaps = useMemo(() => [
-    { urgencia: 'critico', gap: 'Deficit Operacional', impacto: 'R$ -28.467/mes', acao: 'Reduzir custos + aumentar receita', prazo: '30 dias' },
-    { urgencia: 'critico', gap: 'Custo Webi elevado', impacto: 'R$ 8.850/mes (20% receita)', acao: 'Renegociar para success fee', prazo: '15 dias' },
-    { urgencia: 'alto', gap: 'Concentracao regional (DF 42%)', impacto: 'Risco de mercado', acao: 'Expandir SP, MG, RJ', prazo: '60 dias' },
-    { urgencia: 'alto', gap: 'Ruptura de estoque (6.105 SKUs)', impacto: 'Vendas perdidas', acao: 'Reposicao itens curva A', prazo: '30 dias' },
-    { urgencia: 'alto', gap: 'Queda receita -38% vs Fev', impacto: 'R$ -27.032/mes', acao: 'Reativacao base + campanhas', prazo: '30 dias' },
-  ], []);
-
-  /* ─── 6. Simulador ─── */
-  const [sim, setSim] = useState({
-    taxaConversao: 2.5,
-    recuperacaoCRM: 20,
-    reativacao: 10,
-    clientesB2B: 5,
-    ticketB2B: 2500,
-    crescimento: 10,
-  });
-
-  const simulacao = useMemo(() => {
-    const recBase = receita.bruta || 43890;
-    const pedBase = receita.pedidos || 264;
-    const ticketBase = receita.ticketMedio || 166;
-
-    const fatorConversao = sim.taxaConversao / 1.8;
-    const recSite = recBase * fatorConversao;
-    const recCRM = crm.valorPerdido * sim.recuperacaoCRM / 100;
-    const recReativacao = (d.empresa?.baseClientes || 28275) * sim.reativacao / 100 * ticketBase * 0.3;
-    const recB2B = sim.clientesB2B * sim.ticketB2B;
-    const recCrescimento = recBase * sim.crescimento / 100;
-
-    const projetada = recSite + recCRM + recReativacao + recB2B + recCrescimento;
-    const totalCustos = (custos.totalFixo || 0) + (custos.totalVariavel || 0) + (custos.totalFinanceiro || 0) + (custos.impostos || 0);
-    const breakeven = projetada >= totalCustos;
-
-    return { recSite, recCRM, recReativacao, recB2B, recCrescimento, projetada, totalCustos, breakeven };
-  }, [sim, receita, crm, custos, d.empresa]);
-
-  const sliders = [
-    { key: 'taxaConversao', label: 'Taxa de Conversao (%)', min: 0.5, max: 5, step: 0.1 },
-    { key: 'recuperacaoCRM', label: 'Recuperacao CRM (%)', min: 0, max: 50, step: 1 },
-    { key: 'reativacao', label: 'Reativacao Base (%)', min: 0, max: 20, step: 1 },
-    { key: 'clientesB2B', label: 'Novos Clientes B2B', min: 0, max: 20, step: 1 },
-    { key: 'ticketB2B', label: 'Ticket Medio B2B (R$)', min: 500, max: 10000, step: 100 },
-    { key: 'crescimento', label: 'Crescimento Organico (%)', min: 0, max: 30, step: 1 },
-  ];
-
-  /* ─── 7. Plano 90 Dias ─── */
-  const acoes = useMemo(() => [
-    {
-      num: 1, titulo: 'Renegociar Webi', desc: 'Migrar contrato marketing para modelo success fee (% sobre receita gerada)',
-      impacto: 'Economia R$ 5-6K/mes', custo: 'Zero', prazo: '15 dias', responsavel: 'Gestao', badge: 'critico',
-    },
-    {
-      num: 2, titulo: 'Campanha Reativacao Base', desc: 'E-mail + WhatsApp para 28K clientes inativos com cupom exclusivo',
-      impacto: 'R$ 15-25K receita add', custo: 'R$ 500-1K', prazo: '30 dias', responsavel: 'Marketing', badge: 'alto',
-    },
-    {
-      num: 3, titulo: 'Recuperar Deals Perdidos CRM', desc: 'Recontactar 266 negociacoes perdidas com proposta personalizada',
-      impacto: 'R$ 17-34K (10-20%)', custo: 'Tempo equipe', prazo: '30 dias', responsavel: 'Comercial', badge: 'alto',
-    },
-    {
-      num: 4, titulo: 'Prospectar 10 Clientes B2B', desc: 'Farmacias, clinicas estetica, lojas naturais. Kit amostras + tabela atacado',
-      impacto: 'R$ 25K/mes recorrente', custo: 'R$ 2-3K kits', prazo: '60 dias', responsavel: 'Comercial', badge: 'alto',
-    },
-    {
-      num: 5, titulo: 'Reposicao Estoque Curva A', desc: 'Repor 132 SKUs classe A para evitar ruptura e vendas perdidas',
-      impacto: 'Evitar perda R$ 10K', custo: 'Capital giro', prazo: '30 dias', responsavel: 'Operacoes', badge: 'medio',
-    },
-    {
-      num: 6, titulo: 'Diversificar Canais de Venda', desc: 'Ativar Mercado Livre, Amazon, TikTok Shop com catalogo reduzido (top 50)',
-      impacto: 'R$ 8-15K/mes add', custo: 'R$ 1-2K setup', prazo: '90 dias', responsavel: 'E-commerce', badge: 'medio',
-    },
-  ], []);
-
-  /* ─── breakeven calc ─── */
-  const totalDespesas = (custos.totalFixo || 0) + (custos.totalVariavel || 0) + (custos.totalFinanceiro || 0) + (custos.impostos || 0);
-  const breakevenNecessario = Math.round(totalDespesas);
+  }, [dados]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-          Analise IA
-          {fonteAtiva && (
-            <span className="ml-2 text-sm font-normal text-gray-500">({fonteAtiva})</span>
-          )}
-        </h2>
+    <SectionCard title="Sinais Vitais">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {scores.map((s) => (
+          <div
+            key={s.nome}
+            className={`rounded-xl border p-4 animate-fade-in ${scoreBg(s.score)}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.nome}</span>
+              <span className={`text-xl font-bold ${scoreText(s.score)}`}>{s.score}/10</span>
+            </div>
+            <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${scoreBarBg(s.score)}`}
+                style={{ width: `${s.score * 10}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{s.desc}</p>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/* 2. DIAGNOSTICO FINANCEIRO                  */
+/* ═══════════════════════════════════════════ */
+function DiagnosticoFinanceiro({ dados }) {
+  const dre = dados.dre;
+  const recBruta = dre.receitaBruta;
+
+  const linhasDRE = [
+    { label: 'Receita Bruta', valor: dre.receitaBruta, tipo: 'positivo' },
+    { label: '(-) Impostos', valor: dre.impostos, tipo: 'negativo' },
+    { label: '= Receita Liquida', valor: dre.receitaLiquida, tipo: 'subtotal' },
+    { label: '(-) CMV', valor: dre.cmv, tipo: 'negativo' },
+    { label: '= Lucro Bruto', valor: dre.lucroBruto, tipo: 'subtotal' },
+    { label: '(-) Marketing', valor: dre.despesasOp.marketing, tipo: 'negativo' },
+    { label: '(-) Ocupacao', valor: dre.despesasOp.ocupacao, tipo: 'negativo' },
+    { label: '(-) Logistica', valor: dre.despesasOp.logistica, tipo: 'negativo' },
+    { label: '(-) Pessoal', valor: dre.despesasOp.pessoal, tipo: 'negativo' },
+    { label: '(-) Financeiras', valor: dre.despesasOp.financeiras, tipo: 'negativo' },
+    { label: '(-) Outras', valor: dre.despesasOp.outras, tipo: 'negativo' },
+    { label: '= RESULTADO', valor: dre.resultado, tipo: dre.resultado >= 0 ? 'positivo' : 'critico' },
+  ];
+
+  const maxVal = Math.max(...linhasDRE.map(l => Math.abs(l.valor)));
+
+  const alertasCusto = useMemo(() => {
+    return dados.custos.fixos
+      .map(c => ({ ...c, percentReceita: (c.valor / recBruta) * 100 }))
+      .filter(c => c.percentReceita > 5 || c.criticidade === 'alta')
+      .sort((a, b) => b.percentReceita - a.percentReceita)
+      .map(c => ({
+        nivel: c.percentReceita > 15 ? 'critico' : c.percentReceita > 8 ? 'alto' : 'medio',
+        texto: `${c.item}: ${c.percentReceita.toFixed(1)}% da receita (${formatCurrency(c.valor)}/mes)`,
+        acao: c.item.includes('Webi') ? 'Exigir relatorio de ROI urgente' :
+          c.item.includes('RD') ? 'Renegociar plano' : 'Monitorar'
+      }));
+  }, [dados, recBruta]);
+
+  const gapBreakeven = BREAKEVEN - recBruta;
+  const mesesAporte = dados.aportes.total4Meses > 0
+    ? (gapBreakeven / (dados.aportes.total4Meses / 4)).toFixed(1)
+    : '—';
+
+  return (
+    <SectionCard title="Diagnostico Financeiro">
+      {/* A — Cascata DRE */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">DRE — Cascata Visual</h4>
+      <div className="space-y-1.5 mb-6">
+        {linhasDRE.map((l) => {
+          const absVal = Math.abs(l.valor);
+          const pct = (absVal / maxVal) * 100;
+          const pctReceita = ((absVal / recBruta) * 100).toFixed(1);
+          const barColor =
+            l.tipo === 'positivo' ? 'bg-green-500' :
+              l.tipo === 'negativo' ? 'bg-red-400' :
+                l.tipo === 'subtotal' ? 'bg-blue-400' :
+                  'bg-red-600';
+          const isBold = l.tipo === 'subtotal' || l.tipo === 'critico';
+
+          return (
+            <div key={l.label} className="flex items-center gap-3">
+              <span className={`w-36 text-xs text-right shrink-0 ${isBold ? 'font-semibold text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-400'}`}>
+                {l.label}
+              </span>
+              <div className="flex-1 h-5 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
+                <div className={`h-full rounded ${barColor} transition-all duration-500`} style={{ width: `${Math.max(pct, 2)}%` }} />
+              </div>
+              <span className={`w-28 text-xs text-right shrink-0 ${l.tipo === 'critico' ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-600 dark:text-gray-400'}`}>
+                {formatCurrency(l.valor)} ({pctReceita}%)
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* ════════ 1. SINAIS VITAIS ════════ */}
-      <SectionCard title="Sinais Vitais">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {sinaisVitais.map((s) => (
-            <div
-              key={s.nome}
-              className={`rounded-lg border p-4 text-center ${scoreBg(s.score)}`}
-            >
-              <div className={`text-3xl font-black ${scoreText(s.score)}`}>
-                {s.score}
-                <span className="text-base font-normal text-gray-400">/10</span>
+      {/* B — Alertas de Custo */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Alertas Automaticos de Custo</h4>
+      <div className="space-y-2 mb-6">
+        {alertasCusto.map((a, i) => (
+          <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <Badge type={a.nivel} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-800 dark:text-gray-200">{a.texto}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Acao: {a.acao}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* C — Box Breakeven */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Resultado Atual</p>
+          <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(dre.resultado)}</p>
+        </div>
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Breakeven Necessario</p>
+          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(BREAKEVEN)}</p>
+        </div>
+        <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 p-3 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Gap p/ Breakeven</p>
+          <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{formatCurrency(gapBreakeven)}</p>
+        </div>
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Equiv. em Aportes</p>
+          <p className="text-lg font-bold text-gray-700 dark:text-gray-300">{mesesAporte} meses</p>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/* 3. ANALISE CRM                             */
+/* ═══════════════════════════════════════════ */
+function AnaliseCRM({ dados }) {
+  const cenarios = [10, 20, 30, 50].map(pct => ({
+    pct,
+    acao: `Recuperar ${pct}% das perdas`,
+    ganho: CRM.valorPerdido * pct / 100,
+    receitaTotal: dados.receita.bruta + (CRM.valorPerdido * pct / 100),
+    atingeBreakeven: (dados.receita.bruta + CRM.valorPerdido * pct / 100) >= BREAKEVEN
+  }));
+
+  return (
+    <SectionCard title="Analise CRM">
+      {/* A — Funil Visual */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Funil de Negociacoes</h4>
+      <div className="space-y-3 mb-6">
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-gray-600 dark:text-gray-400">{CRM.criadas} negociacoes criadas</span>
+            <span className="text-gray-500">100%</span>
+          </div>
+          <div className="w-full h-8 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-green-600 dark:text-green-400">{CRM.vendidas} vendidas — {formatCurrency(CRM.valorVendido)}</span>
+            <span className="text-gray-500">46%</span>
+          </div>
+          <div className="h-8 bg-green-500/20 rounded-lg overflow-hidden" style={{ width: '46%' }}>
+            <div className="h-full bg-green-500 rounded-lg" style={{ width: '100%' }} />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-red-600 dark:text-red-400">{CRM.perdidas} perdidas — {formatCurrency(CRM.valorPerdido)}</span>
+            <span className="text-gray-500">93%</span>
+          </div>
+          <div className="h-8 bg-red-500/20 rounded-lg overflow-hidden" style={{ width: '93%' }}>
+            <div className="h-full bg-red-500 rounded-lg" style={{ width: '100%' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* B — Cenarios de Recuperacao */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Cenarios de Recuperacao</h4>
+      <div className="overflow-x-auto mb-6">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Acao</th>
+              <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Ganho</th>
+              <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Receita Total</th>
+              <th className="text-center py-2 px-3 text-xs font-medium text-gray-500">Breakeven?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cenarios.map(c => (
+              <tr key={c.pct} className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-2 px-3 text-gray-700 dark:text-gray-300">{c.acao}</td>
+                <td className="py-2 px-3 text-right text-green-600 dark:text-green-400 font-medium">{formatCurrency(c.ganho)}</td>
+                <td className="py-2 px-3 text-right text-gray-700 dark:text-gray-300">{formatCurrency(c.receitaTotal)}</td>
+                <td className="py-2 px-3 text-center">
+                  {c.atingeBreakeven
+                    ? <span className="text-green-600 font-bold">&#10003;</span>
+                    : <span className="text-red-500 font-bold">&#10007;</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* C — Comparativo de Ticket */}
+      <div className="rounded-xl bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border border-blue-200 dark:border-blue-800 p-5">
+        <div className="flex items-center justify-center gap-8 mb-3">
+          <div className="text-center">
+            <p className="text-xs text-gray-500">Ticket CRM</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(CRM.ticketCRM)}</p>
+          </div>
+          <span className="text-2xl text-gray-400">vs</span>
+          <div className="text-center">
+            <p className="text-xs text-gray-500">Ticket Site</p>
+            <p className="text-2xl font-bold text-gray-600 dark:text-gray-400">{formatCurrency(CRM.ticketSite)}</p>
+          </div>
+        </div>
+        <p className="text-sm text-center text-gray-700 dark:text-gray-300 font-medium">
+          Cada cliente atendido pelo WhatsApp vale <span className="text-green-600 dark:text-green-400 font-bold">{formatCurrency(CRM.ticketCRM - CRM.ticketSite)}</span> a mais por pedido
+        </p>
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/* 4. ANALISE PORTFOLIO                       */
+/* ═══════════════════════════════════════════ */
+function AnalisePortfolio({ dados }) {
+  const curva = dados.curvaABC;
+  const totalABC = curva.classeA + curva.classeB + curva.classeC;
+  const top10 = dados.topProdutos.slice(0, 10);
+  const topEstoque = dados.estoque.topPorValor || [];
+  const categorias = dados.categorias || [];
+
+  const alertasEstoque = [
+    {
+      nivel: 'critico',
+      titulo: `${dados.estoque.semEstoque} SKUs sem estoque (${((dados.estoque.semEstoque / dados.estoque.totalSKUs) * 100).toFixed(0)}% do catalogo)`,
+      desc: 'Ruptura em 75% do portfolio gera vendas perdidas diariamente'
+    },
+    {
+      nivel: 'alto',
+      titulo: `R$ ${(dados.estoque.valorCusto / 1000000).toFixed(2)}M imobilizado em estoque`,
+      desc: `${(dados.estoque.valorCusto / dados.receita.bruta).toFixed(1)}x a receita mensal parado em produto`
+    }
+  ];
+
+  const maxCat = Math.max(...categorias.map(c => c.percentual));
+
+  return (
+    <SectionCard title="Analise de Portfolio">
+      {/* A — Curva ABC */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Curva ABC</h4>
+      <div className="space-y-2 mb-4">
+        {[
+          { label: 'Classe A', qtd: curva.classeA, color: 'bg-green-500', pct: ((curva.classeA / totalABC) * 100).toFixed(0) },
+          { label: 'Classe B', qtd: curva.classeB, color: 'bg-yellow-400', pct: ((curva.classeB / totalABC) * 100).toFixed(0) },
+          { label: 'Classe C', qtd: curva.classeC, color: 'bg-red-400', pct: ((curva.classeC / totalABC) * 100).toFixed(0) },
+        ].map(c => (
+          <div key={c.label} className="flex items-center gap-3">
+            <span className="w-20 text-xs font-medium text-gray-600 dark:text-gray-400">{c.label}</span>
+            <div className="flex-1 h-5 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
+              <div className={`h-full rounded ${c.color}`} style={{ width: `${c.pct}%` }} />
+            </div>
+            <span className="w-24 text-xs text-right text-gray-600 dark:text-gray-400">{c.qtd} SKUs ({c.pct}%)</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Top 10 Produtos */}
+      <div className="overflow-x-auto mb-6">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              {['SKU', 'Nome', 'Categoria', 'Qtd', 'Receita', 'Markup%', '% Fat.', 'Classe'].map(h => (
+                <th key={h} className="text-left py-2 px-2 text-xs font-medium text-gray-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {top10.map((p, i) => (
+              <tr key={p.sku} className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-1.5 px-2 text-xs text-gray-500">{p.sku}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300 max-w-[200px] truncate">{p.nome}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-500">{p.categoria}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300">{p.qtd}</td>
+                <td className="py-1.5 px-2 text-xs text-green-600 dark:text-green-400">{formatCurrency(p.receita)}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300">{p.markup.toFixed(0)}%</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300">{p.fatPercent.toFixed(1)}%</td>
+                <td className="py-1.5 px-2"><span className={`text-xs px-1.5 py-0.5 rounded font-medium ${i < 3 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>A</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* B — Alertas de Estoque */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Alertas de Estoque</h4>
+      <div className="space-y-2 mb-4">
+        {alertasEstoque.map((a, i) => (
+          <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <Badge type={a.nivel} />
+            <div>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{a.titulo}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{a.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Top 5 estoque por valor */}
+      <div className="overflow-x-auto mb-6">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              {['SKU', 'Produto', 'Estoque', 'Custo Unit.', 'Valor Total'].map(h => (
+                <th key={h} className="text-left py-2 px-2 text-xs font-medium text-gray-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {topEstoque.map(p => (
+              <tr key={p.sku} className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-1.5 px-2 text-xs text-gray-500">{p.sku}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300">{p.nome}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300">{p.estoque}</td>
+                <td className="py-1.5 px-2 text-xs text-gray-700 dark:text-gray-300">{formatCurrency(p.custo)}</td>
+                <td className="py-1.5 px-2 text-xs text-orange-600 dark:text-orange-400 font-medium">{formatCurrency(p.totalValor)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* C — Mix de Categorias */}
+      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Mix de Categorias</h4>
+      <div className="space-y-2">
+        {categorias.map(c => (
+          <div key={c.nome} className="flex items-center gap-3">
+            <span className="w-40 text-xs text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
+              {c.nome}
+              {(c.nome.includes('Extrato') && (c.nome.includes('Fluido') || c.nome.includes('Glic'))) && (
+                <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">B2B</span>
+              )}
+            </span>
+            <div className="flex-1 h-4 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
+              <div className="h-full bg-green-500 rounded" style={{ width: `${(c.percentual / maxCat) * 100}%` }} />
+            </div>
+            <span className="w-20 text-xs text-right text-gray-600 dark:text-gray-400">{c.percentual}%</span>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/* 5. MATRIZ DE GAPS                          */
+/* ═══════════════════════════════════════════ */
+function MatrizGaps({ dados }) {
+  const gaps = useMemo(() => {
+    const result = [];
+
+    if (dados.dre.resultado < 0)
+      result.push({ urgencia: 'critico', titulo: 'Deficit operacional',
+        impacto: Math.abs(dados.dre.resultado),
+        acao: 'Reduzir custos fixos + aumentar receita', prazo: '30 dias' });
+
+    const webi = dados.custos.fixos.find(c => c.item.includes('Webi'));
+    if (webi && webi.valor / dados.receita.bruta > 0.15)
+      result.push({ urgencia: 'critico', titulo: `Webi = ${((webi.valor / dados.receita.bruta) * 100).toFixed(0)}% da receita`,
+        impacto: webi.valor * 12,
+        acao: 'Exigir ROI ate 31/03. Renegociar para % da receita gerada', prazo: '7 dias' });
+
+    if (dados.regioes[0]?.percent > 40)
+      result.push({ urgencia: 'alto', titulo: `${dados.regioes[0].uf} = ${dados.regioes[0].percent}% da receita`,
+        impacto: dados.receita.bruta * 0.15,
+        acao: 'Campanhas SP, MG, RJ — clientes ja cadastrados nesses estados', prazo: '60 dias' });
+
+    if (dados.estoque.semEstoque / dados.estoque.totalSKUs > 0.5)
+      result.push({ urgencia: 'alto', titulo: '75% dos SKUs sem estoque',
+        impacto: dados.estoque.valorCusto * 0.1,
+        acao: 'Definir estoque minimo para Curva A (top 132 produtos)', prazo: '30 dias' });
+
+    const hist = dados.fluxoCaixa.historico;
+    const ult = hist[hist.length - 1], pen = hist[hist.length - 2];
+    if (ult?.receita && pen?.receita && ult.receita < pen.receita)
+      result.push({ urgencia: 'alto', titulo: `Receita caiu ${((pen.receita - ult.receita) / pen.receita * 100).toFixed(0)}% no mes`,
+        impacto: pen.receita - ult.receita,
+        acao: 'Campanha reativacao base + push WhatsApp inativos 30+ dias', prazo: '15 dias' });
+
+    const ordemUrgencia = { critico: 0, alto: 1, medio: 2 };
+    return result.sort((a, b) => ordemUrgencia[a.urgencia] - ordemUrgencia[b.urgencia]);
+  }, [dados]);
+
+  const totalPotencial = gaps.reduce((s, g) => s + g.impacto, 0);
+
+  return (
+    <SectionCard title="Matriz de Gaps">
+      <div className="overflow-x-auto mb-4">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              {['#', 'Urgencia', 'Gap', 'Impacto R$', 'Acao', 'Prazo'].map(h => (
+                <th key={h} className="text-left py-2 px-2 text-xs font-medium text-gray-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {gaps.map((g, i) => (
+              <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+                <td className="py-2 px-2 text-xs text-gray-500 font-medium">{i + 1}</td>
+                <td className="py-2 px-2"><Badge type={g.urgencia} /></td>
+                <td className="py-2 px-2 text-xs text-gray-700 dark:text-gray-300 font-medium">{g.titulo}</td>
+                <td className="py-2 px-2 text-xs text-orange-600 dark:text-orange-400 font-medium">{formatCurrency(g.impacto)}</td>
+                <td className="py-2 px-2 text-xs text-gray-600 dark:text-gray-400 max-w-[250px]">{g.acao}</td>
+                <td className="py-2 px-2 text-xs text-gray-500">{g.prazo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rounded-xl bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 border border-orange-200 dark:border-orange-800 p-4 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400">Potencial total desbloqueavel</p>
+        <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{formatCurrency(totalPotencial)}</p>
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/* 6. SIMULADOR DE RECEITA                    */
+/* ═══════════════════════════════════════════ */
+function SimuladorReceita({ dados }) {
+  const [sim, setSim] = useState({
+    taxaConversao: 1.8,
+    recuperacaoCRM: 20,
+    reativacaoBase: 5,
+    clientesB2B: 5,
+    ticketB2B: 2500,
+    crescimentoOrganico: 10
+  });
+
+  const resultado = useMemo(() => {
+    const sessoes = 24973;
+    const ticket = dados.receita.ticketMedio;
+    const base = dados.receita.bruta;
+
+    const cro = Math.max(0, (sim.taxaConversao / 100 - 0.005) * sessoes * ticket);
+    const crm = 169000 * sim.recuperacaoCRM / 100;
+    const reativ = (dados.empresa.baseClientes * sim.reativacaoBase / 100) * ticket;
+    const b2b = sim.clientesB2B * sim.ticketB2B;
+    const org = base * sim.crescimentoOrganico / 100;
+    const total = base + cro + crm + reativ + b2b + org;
+
+    return { base, cro, crm, reativ, b2b, org, total };
+  }, [sim, dados]);
+
+  const meta = 150000;
+  const progressPct = Math.min((resultado.total / meta) * 100, 100);
+  const atingeBreakeven = resultado.total >= BREAKEVEN;
+
+  const sliders = [
+    { key: 'taxaConversao', label: 'Taxa Conversao Site (%)', min: 0.5, max: 5, step: 0.1 },
+    { key: 'recuperacaoCRM', label: 'Recuperacao CRM (%)', min: 0, max: 100, step: 5 },
+    { key: 'reativacaoBase', label: 'Reativacao Base (%)', min: 0, max: 20, step: 1 },
+    { key: 'clientesB2B', label: 'Novos Clientes B2B', min: 0, max: 30, step: 1 },
+    { key: 'ticketB2B', label: 'Ticket Medio B2B (R$)', min: 500, max: 10000, step: 250 },
+    { key: 'crescimentoOrganico', label: 'Crescimento Organico (%)', min: 0, max: 50, step: 5 },
+  ];
+
+  const linhasGanho = [
+    { label: 'Receita Base', valor: resultado.base },
+    { label: '+ CRO (conversao)', valor: resultado.cro },
+    { label: '+ CRM (recuperacao)', valor: resultado.crm },
+    { label: '+ Reativacao', valor: resultado.reativ },
+    { label: '+ B2B', valor: resultado.b2b },
+    { label: '+ Organico', valor: resultado.org },
+  ];
+
+  return (
+    <SectionCard title="Simulador de Receita">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Sliders */}
+        <div className="space-y-4">
+          {sliders.map(s => (
+            <div key={s.key}>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-600 dark:text-gray-400">{s.label}</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">{sim[s.key]}</span>
               </div>
-              <div className="mt-1 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                {s.nome}
-              </div>
-              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{s.desc}</div>
+              <input
+                type="range"
+                min={s.min}
+                max={s.max}
+                step={s.step}
+                value={sim[s.key]}
+                onChange={e => setSim(prev => ({ ...prev, [s.key]: parseFloat(e.target.value) }))}
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+              />
             </div>
           ))}
         </div>
-      </SectionCard>
 
-      {/* ════════ 2. DIAGNOSTICO FINANCEIRO ════════ */}
-      <SectionCard title="Diagnostico Financeiro - DRE em Cascata">
-        <div className="space-y-2">
-          {dreLinhas.map((l) => {
-            const abs = Math.abs(l.valor);
-            const pct = (abs / maxDRE) * 100;
-            const isPos = l.valor >= 0;
-            const barColor =
-              l.tipo === 'resultado'
-                ? isPos ? 'bg-green-500' : 'bg-red-500'
-                : l.tipo === 'subtotal'
-                  ? 'bg-blue-500'
-                  : l.tipo === 'positivo'
-                    ? 'bg-green-500'
-                    : 'bg-red-400';
-
-            return (
-              <div key={l.label} className="flex items-center gap-3">
-                <span
-                  className={`w-36 shrink-0 text-sm ${
-                    l.tipo === 'subtotal' || l.tipo === 'resultado'
-                      ? 'font-bold text-gray-800 dark:text-gray-100'
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  {l.tipo === 'negativo' ? `(-) ${l.label}` : l.tipo === 'subtotal' || l.tipo === 'resultado' ? `= ${l.label}` : l.label}
-                </span>
-                <div className="flex-1">
-                  <div className="h-5 w-full overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
-                    <div
-                      className={`h-full rounded transition-all duration-500 ${barColor}`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-                <span
-                  className={`w-28 shrink-0 text-right text-sm font-semibold ${
-                    l.valor < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-200'
-                  }`}
-                >
+        {/* Resultado */}
+        <div>
+          <div className="space-y-1.5 mb-4">
+            {linhasGanho.map(l => (
+              <div key={l.label} className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">{l.label}</span>
+                <span className={l.valor > 0 && l.label !== 'Receita Base' ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-700 dark:text-gray-300'}>
                   {formatCurrency(l.valor)}
                 </span>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Breakeven + Aportes cards */}
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-900/20">
-            <div className="text-sm font-semibold text-orange-700 dark:text-orange-300">
-              Breakeven Necessario
-            </div>
-            <div className="mt-1 text-2xl font-black text-orange-800 dark:text-orange-200">
-              {formatCurrency(breakevenNecessario)}
-            </div>
-            <div className="mt-1 text-xs text-orange-600 dark:text-orange-400">
-              Receita minima para cobrir todos os custos
-            </div>
-          </div>
-          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20">
-            <div className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-              Aportes dos Socios (4 meses)
-            </div>
-            <div className="mt-1 text-2xl font-black text-purple-800 dark:text-purple-200">
-              {formatCurrency(aportes.total4Meses || 118288.89)}
-            </div>
-            <div className="mt-1 text-xs text-purple-600 dark:text-purple-400">
-              {(aportes.detalhes || []).map((a) => `${a.mes}: ${formatCurrency(a.valor)}`).join(' | ')}
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* ════════ 3. ANALISE CRM ════════ */}
-      <SectionCard title="Analise CRM - Funil de Negociacoes">
-        {/* Funnel */}
-        <div className="mb-6 space-y-3">
-          {[
-            { label: 'Criadas', valor: crm.criadas, color: 'blue', w: 100 },
-            { label: 'Perdidas', valor: crm.perdidas, subLabel: formatCurrency(crm.valorPerdido), color: 'red', w: (crm.perdidas / crm.criadas) * 100 },
-            { label: 'Vendidas', valor: crm.vendidas, subLabel: formatCurrency(crm.valorVendido), color: 'green', w: (crm.vendidas / crm.criadas) * 100 },
-          ].map((f) => (
-            <div key={f.label} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-sm font-medium text-gray-600 dark:text-gray-400">{f.label}</span>
-              <div className="flex-1">
-                <div className="h-8 w-full overflow-hidden rounded bg-gray-100 dark:bg-gray-800">
-                  <div
-                    className={`flex h-full items-center rounded px-3 text-sm font-bold text-white ${
-                      f.color === 'blue' ? 'bg-blue-500' : f.color === 'red' ? 'bg-red-500' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${f.w}%` }}
-                  >
-                    {f.valor}
-                    {f.subLabel && (
-                      <span className="ml-2 text-xs font-normal opacity-80">({f.subLabel})</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Recovery scenarios */}
-        <div className="mb-4">
-          <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Cenarios de Recuperacao (Deals Perdidos)
-          </h4>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {crm.cenarios.map((c) => (
-              <div key={c.percent} className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-center dark:border-gray-700 dark:bg-gray-800">
-                <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{c.percent}%</div>
-                <div className="text-xs text-gray-600 dark:text-gray-400">{c.deals} deals</div>
-                <div className="text-sm font-semibold text-green-600 dark:text-green-400">{formatCurrency(c.valor)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Ticket comparison */}
-        <div className="flex items-center gap-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-          <div className="text-center">
-            <div className="text-xs text-gray-500">Ticket CRM</div>
-            <div className="text-xl font-bold text-blue-600 dark:text-blue-400">R$ {crm.ticketCRM}</div>
-          </div>
-          <div className="text-2xl font-light text-gray-300">vs</div>
-          <div className="text-center">
-            <div className="text-xs text-gray-500">Ticket Site</div>
-            <div className="text-xl font-bold text-gray-600 dark:text-gray-300">R$ {crm.ticketSite}</div>
-          </div>
-          <div className="text-sm text-gray-500">
-            CRM gera ticket <span className="font-bold text-blue-600 dark:text-blue-400">2,5x maior</span>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* ════════ 4. ANALISE PORTFOLIO ════════ */}
-      <SectionCard title="Analise Portfolio">
-        {/* Curva ABC */}
-        <div className="mb-6 space-y-3">
-          <ProgressBar
-            value={abc.a}
-            max={abc.total}
-            color="green"
-            label="Classe A"
-            detail={`${abc.a} SKUs`}
-            showPercent
-          />
-          <ProgressBar
-            value={abc.b}
-            max={abc.total}
-            color="orange"
-            label="Classe B"
-            detail={`${abc.b} SKUs`}
-            showPercent
-          />
-          <ProgressBar
-            value={abc.c}
-            max={abc.total}
-            color="red"
-            label="Classe C"
-            detail={`${abc.c} SKUs`}
-            showPercent
-          />
-        </div>
-
-        {/* Top 10 produtos */}
-        <h4 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Top 10 Produtos</h4>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                <th className="pb-2 pr-3">#</th>
-                <th className="pb-2 pr-3">Produto</th>
-                <th className="pb-2 pr-3 text-right">Qtd</th>
-                <th className="pb-2 pr-3 text-right">Receita</th>
-                <th className="pb-2 pr-3 text-right">Markup</th>
-                <th className="pb-2 text-right">% Fat.</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {topProdutos.slice(0, 10).map((p, i) => (
-                <tr key={p.sku} className="text-gray-700 dark:text-gray-300">
-                  <td className="py-1.5 pr-3 text-gray-400">{i + 1}</td>
-                  <td className="py-1.5 pr-3 font-medium">{p.nome}</td>
-                  <td className="py-1.5 pr-3 text-right">{p.qtd}</td>
-                  <td className="py-1.5 pr-3 text-right">{formatCurrency(p.receita)}</td>
-                  <td className="py-1.5 pr-3 text-right">{p.markup?.toFixed(1)}%</td>
-                  <td className="py-1.5 text-right">{p.fatPercent?.toFixed(1)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Stock alerts */}
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-          <h4 className="mb-1 text-sm font-semibold text-red-700 dark:text-red-300">
-            Alerta de Estoque
-          </h4>
-          <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
-            <div>
-              <div className="text-xs text-red-600 dark:text-red-400">Total SKUs</div>
-              <div className="font-bold text-gray-800 dark:text-gray-200">{formatNumber(estoque.totalSKUs || 0)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-red-600 dark:text-red-400">Com Estoque</div>
-              <div className="font-bold text-green-600">{formatNumber(estoque.comEstoque || 0)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-red-600 dark:text-red-400">Sem Estoque</div>
-              <div className="font-bold text-red-600">{formatNumber(estoque.semEstoque || 0)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-red-600 dark:text-red-400">Valor em Estoque</div>
-              <div className="font-bold text-gray-800 dark:text-gray-200">{formatCurrency(estoque.valorVenda || 0)}</div>
-            </div>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* ════════ 5. MATRIZ DE GAPS ════════ */}
-      <SectionCard title="Matriz de Gaps">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                <th className="pb-2 pr-3">Urgencia</th>
-                <th className="pb-2 pr-3">Gap</th>
-                <th className="pb-2 pr-3">Impacto R$</th>
-                <th className="pb-2 pr-3">Acao</th>
-                <th className="pb-2">Prazo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {gaps.map((g) => (
-                <tr key={g.gap} className="text-gray-700 dark:text-gray-300">
-                  <td className="py-2 pr-3">
-                    <Badge type={g.urgencia}>{g.urgencia.toUpperCase()}</Badge>
-                  </td>
-                  <td className="py-2 pr-3 font-medium">{g.gap}</td>
-                  <td className="py-2 pr-3 text-sm">{g.impacto}</td>
-                  <td className="py-2 pr-3 text-sm">{g.acao}</td>
-                  <td className="py-2 text-sm font-semibold">{g.prazo}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
-
-      {/* ════════ 6. SIMULADOR DE RECEITA ════════ */}
-      <SectionCard title="Simulador de Receita">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Sliders */}
-          <div className="space-y-4">
-            {sliders.map((s) => (
-              <div key={s.key}>
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{s.label}</label>
-                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">{sim[s.key]}</span>
-                </div>
-                <input
-                  type="range"
-                  min={s.min}
-                  max={s.max}
-                  step={s.step}
-                  value={sim[s.key]}
-                  onChange={(e) => setSim((prev) => ({ ...prev, [s.key]: parseFloat(e.target.value) }))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-200 accent-blue-600 dark:bg-gray-700"
-                />
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>{s.min}</span>
-                  <span>{s.max}</span>
-                </div>
-              </div>
             ))}
           </div>
 
-          {/* Results */}
-          <div className="space-y-3">
-            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Receita Site (conv.)</span>
-                  <span className="font-semibold">{formatCurrency(simulacao.recSite)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Recuperacao CRM</span>
-                  <span className="font-semibold">{formatCurrency(simulacao.recCRM)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Reativacao Base</span>
-                  <span className="font-semibold">{formatCurrency(simulacao.recReativacao)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Receita B2B</span>
-                  <span className="font-semibold">{formatCurrency(simulacao.recB2B)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Crescimento Organico</span>
-                  <span className="font-semibold">{formatCurrency(simulacao.recCrescimento)}</span>
-                </div>
-              </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mb-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">TOTAL PROJETADO</span>
+              <span className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(resultado.total)}</span>
             </div>
+          </div>
 
-            <div
-              className={`rounded-lg border-2 p-4 text-center ${
-                simulacao.breakeven
-                  ? 'border-green-400 bg-green-50 dark:border-green-600 dark:bg-green-900/20'
-                  : 'border-red-400 bg-red-50 dark:border-red-600 dark:bg-red-900/20'
-              }`}
-            >
-              <div className="text-sm text-gray-600 dark:text-gray-400">Receita Projetada</div>
-              <div className={`text-3xl font-black ${simulacao.breakeven ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(simulacao.projetada)}
-              </div>
-              <div className="mt-1 text-sm">
-                {simulacao.breakeven ? (
-                  <span className="font-semibold text-green-600">Acima do breakeven ({formatCurrency(simulacao.totalCustos)})</span>
-                ) : (
-                  <span className="font-semibold text-red-600">Abaixo do breakeven ({formatCurrency(simulacao.totalCustos)})</span>
-                )}
-              </div>
+          {/* Breakeven badge */}
+          <div className={`rounded-lg p-3 text-center mb-4 ${atingeBreakeven ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'}`}>
+            <span className={`text-sm font-semibold ${atingeBreakeven ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {atingeBreakeven
+                ? '&#10003; Breakeven atingido'
+                : `&#10007; Faltam ${formatCurrency(BREAKEVEN - resultado.total)} para breakeven`}
+            </span>
+          </div>
+
+          {/* Progress bar vs meta */}
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-gray-500">Progresso vs Meta {formatCurrency(meta)}</span>
+              <span className="text-gray-600 dark:text-gray-400 font-medium">{progressPct.toFixed(0)}%</span>
+            </div>
+            <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         </div>
-      </SectionCard>
+      </div>
+    </SectionCard>
+  );
+}
 
-      {/* ════════ 7. PLANO DE ACAO 90 DIAS ════════ */}
-      <SectionCard title="Plano de Acao 90 Dias">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {acoes.map((a) => (
-            <div
-              key={a.num}
-              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              <div className="mb-3 flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                  {a.num}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-800 dark:text-gray-100">{a.titulo}</h4>
-                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{a.desc}</p>
-                </div>
+/* ═══════════════════════════════════════════ */
+/* 7. PLANO DE ACAO                           */
+/* ═══════════════════════════════════════════ */
+function PlanoAcao() {
+  const acoes = [
+    { n: 1, titulo: 'Campanha de reativacao da base', impacto: 'R$ 15-25k em 15 dias',
+      custo: 'R$ 0', prazo: 'Esta semana', responsavel: 'Arnaldo + RD', badge: 'maior ROI',
+      desc: 'E-mail + WhatsApp para clientes inativos ha mais de 90 dias' },
+    { n: 2, titulo: 'Playbook WhatsApp + tags de perda no CRM', impacto: '+R$ 33,8k/mes',
+      custo: 'R$ 0', prazo: '7 dias', responsavel: 'Arnaldo + consultor', badge: 'material pronto',
+      desc: 'Scripts por persona + categorizar motivos de perda no RD Station' },
+    { n: 3, titulo: 'CRO Shopify — otimizacao de conversao', impacto: '+R$ 24k/mes',
+      custo: 'R$ 0-2k', prazo: '14 dias', responsavel: 'Dev + Webi', badge: 'pendente',
+      desc: 'Checkout, fotos top 3 SKUs (Uva/Rosa Mosqueta/Jojoba), copy de produto' },
+    { n: 4, titulo: 'Auditoria e renegociacao Webi', impacto: 'Economia R$ 5k/mes',
+      custo: 'R$ 0', prazo: '7 dias', responsavel: 'Arnaldo', badge: 'urgente',
+      desc: 'Exigir relatorio de KPIs marco ate 31/03. Renegociar para % da receita' },
+    { n: 5, titulo: 'Prospeccao B2B — farmacias DF', impacto: '+R$ 20k/mes em 60 dias',
+      custo: 'R$ 500', prazo: '30 dias', responsavel: 'Arnaldo', badge: 'kit pronto',
+      desc: '10 farmacias prioritarias no DF. Kit de proposta ja disponivel' },
+    { n: 6, titulo: 'Estoque minimo top 50 SKUs Curva A', impacto: 'Reduzir ruptura',
+      custo: 'R$ 0', prazo: '30 dias', responsavel: 'Operacao + Bling', badge: 'pendente',
+      desc: 'Definir ponto de reposicao automatico para os 132 produtos Classe A' },
+  ];
+
+  const badgeColor = (b) => {
+    if (b === 'maior ROI') return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400';
+    if (b === 'urgente') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400';
+    if (b === 'material pronto' || b === 'kit pronto') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400';
+    return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  };
+
+  return (
+    <SectionCard title="Plano de Acao — Proximos Passos">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {acoes.map(a => (
+          <div key={a.n} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 animate-fade-in">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">{a.n}</span>
+                <h5 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{a.titulo}</h5>
               </div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Impacto</span>
-                  <span className="font-semibold text-green-600 dark:text-green-400">{a.impacto}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Custo</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{a.custo}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Prazo</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{a.prazo}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Responsavel</span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">{a.responsavel}</span>
-                </div>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${badgeColor(a.badge)}`}>{a.badge}</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{a.desc}</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-gray-400">Impacto:</span>
+                <span className="ml-1 text-green-600 dark:text-green-400 font-medium">{a.impacto}</span>
               </div>
-              <div className="mt-3">
-                <Badge type={a.badge}>{a.badge === 'critico' ? 'URGENTE' : a.badge === 'alto' ? 'ALTA PRIORIDADE' : 'MEDIO PRAZO'}</Badge>
+              <div>
+                <span className="text-gray-400">Custo:</span>
+                <span className="ml-1 text-gray-700 dark:text-gray-300">{a.custo}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Prazo:</span>
+                <span className="ml-1 text-gray-700 dark:text-gray-300">{a.prazo}</span>
+              </div>
+              <div>
+                <span className="text-gray-400">Responsavel:</span>
+                <span className="ml-1 text-gray-700 dark:text-gray-300">{a.responsavel}</span>
               </div>
             </div>
-          ))}
-        </div>
-      </SectionCard>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ═══════════════════════════════════════════ */
+/* PAGINA PRINCIPAL                           */
+/* ═══════════════════════════════════════════ */
+export default function AnaliseIAPage({ dados: propDados }) {
+  const dados = propDados || DADOS;
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="flex items-center gap-3 mb-2">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Analise Estrategica IA</h2>
+        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400">
+          Auto-gerado
+        </span>
+      </div>
+
+      <PainelSinaisVitais dados={dados} />
+      <DiagnosticoFinanceiro dados={dados} />
+      <AnaliseCRM dados={dados} />
+      <AnalisePortfolio dados={dados} />
+      <MatrizGaps dados={dados} />
+      <SimuladorReceita dados={dados} />
+      <PlanoAcao />
     </div>
   );
 }
