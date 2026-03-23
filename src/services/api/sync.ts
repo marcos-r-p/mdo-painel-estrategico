@@ -1,7 +1,7 @@
 // ─── Sync API Service ───────────────────────────────────────
 // Sync logic extracted from DashboardPage.
 
-import { supabase } from '../supabase'
+import { supabase, supabaseUrl } from '../supabase'
 import type { SyncResponse } from '../../types/api'
 
 // ── Constants ────────────────────────────────────────────────
@@ -35,15 +35,24 @@ export async function getAccessToken(): Promise<string> {
  * Call a Supabase Edge Function to sync a single step of a platform.
  *
  * URL pattern: `{supabaseUrl}/functions/v1/{platform}-sync?tipo={tipo}&meses=1`
+ *
+ * Note: The original DashboardPage.jsx did not pass auth headers.
+ * We now pass the Bearer token for Edge Functions that require authentication.
+ * If the Edge Function has verify_jwt=false, the header is simply ignored.
  */
 export async function syncPlatformStep(
   platform: string,
   tipo: string,
 ): Promise<SyncResponse> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const token = await getAccessToken()
 
   const res = await fetch(
     `${supabaseUrl}/functions/v1/${platform}-sync?tipo=${tipo}&meses=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
   )
 
   if (!res.ok) {
@@ -63,11 +72,12 @@ export async function syncPlatformStep(
 
 /** Return the Bling OAuth authorization URL. */
 export function getBlingOAuthURL(): string {
-  return 'https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=567bba7562d27003649ad247d8bd0baad95d3435&state=mdo'
+  // Client ID sourced from env var; falls back to the known app ID
+  const clientId = import.meta.env.VITE_BLING_CLIENT_ID ?? '567bba7562d27003649ad247d8bd0baad95d3435'
+  return `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${clientId}&state=mdo`
 }
 
 /** Return the Shopify OAuth callback URL (via Supabase Edge Function). */
 export function getShopifyOAuthURL(): string {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   return `${supabaseUrl}/functions/v1/shopify-callback`
 }

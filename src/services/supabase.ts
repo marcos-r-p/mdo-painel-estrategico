@@ -10,3 +10,6 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
+
+/** Exported for use in Edge Function URL construction (sync.ts, etc.) */
+export { supabaseUrl }

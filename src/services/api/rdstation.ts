@@ -78,24 +78,29 @@ export async function fetchRDStationTasks(): Promise<RDStationTask[]> {
   return (data ?? []) as RDStationTask[]
 }
 
-/** Fetch all RD Station data in parallel, with a connected flag. */
+/**
+ * Fetch all RD Station data in parallel, with a connected flag.
+ * Uses individual fetchers but catches errors gracefully (treats as disconnected).
+ */
 export async function fetchAllRDStationData(): Promise<RDStationData> {
-  const [dealsRes, contactsRes, stagesRes, tasksRes] = await Promise.all([
-    supabase.from('rdstation_deals').select('*').limit(5000),
-    supabase.from('rdstation_contacts').select('*').limit(5000),
-    supabase.from('rdstation_stages').select('*').order('stage_order').limit(500),
-    supabase.from('rdstation_tasks').select('*').limit(5000),
+  const results = await Promise.allSettled([
+    fetchRDStationDeals(),
+    fetchRDStationContacts(),
+    fetchRDStationStages(),
+    fetchRDStationTasks(),
   ])
 
-  // If tables don't exist yet, errors will come back — treat as disconnected
-  const hasData = !dealsRes.error && (dealsRes.data?.length ?? 0) > 0
+  const deals = results[0].status === 'fulfilled' ? results[0].value : []
+  const contacts = results[1].status === 'fulfilled' ? results[1].value : []
+  const stages = results[2].status === 'fulfilled' ? results[2].value : []
+  const tasks = results[3].status === 'fulfilled' ? results[3].value : []
 
   return {
-    deals: (dealsRes.data ?? []) as RDStationDeal[],
-    contacts: (contactsRes.data ?? []) as RDStationContact[],
-    stages: (stagesRes.data ?? []) as RDStationStage[],
-    tasks: (tasksRes.data ?? []) as RDStationTask[],
-    connected: hasData,
+    deals,
+    contacts,
+    stages,
+    tasks,
+    connected: deals.length > 0,
   }
 }
 
