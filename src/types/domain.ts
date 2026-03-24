@@ -113,6 +113,7 @@ export interface NavigationSection {
   label: string;
   icon: string;
   path: string;
+  ariaLabel?: string;
 }
 
 // ── Alertas ──────────────────────────────────────────────────

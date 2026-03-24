@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
 import DateRangePicker from '../components/ui/DateRangePicker'
 import ProgressBar from '../components/ui/ProgressBar'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 interface DateRange {
   dataIni: string

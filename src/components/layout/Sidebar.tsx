@@ -88,7 +88,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         <div className={`mx-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`} />
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+        <nav aria-label="Menu principal" className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
           {NAVIGATION_SECTIONS.filter((section) => {
             const pageKey = section.path.replace('/app/', '')
             return hasAccess(pageKey)
@@ -98,6 +98,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               to={section.path}
               onClick={() => setIsOpen(false)}
               title={section.label}
+              aria-label={section.ariaLabel ?? section.label}
               className={({ isActive }) => `
                 w-full flex items-center rounded-lg px-3 py-2.5
                 transition-colors duration-150 group relative
@@ -164,6 +165,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                   to={section.path}
                   onClick={() => setIsOpen(false)}
                   title={section.label}
+                  aria-label={section.ariaLabel ?? section.label}
                   className={({ isActive }) => `
                     w-full flex items-center rounded-lg px-3 py-2.5
                     transition-colors duration-150 group relative

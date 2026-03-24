@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { resetPasswordForEmail } from '../services/api/auth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 type Mode = 'login' | 'forgotPassword' | 'resetSent';
 
 export default function LoginPage() {
+  useDocumentTitle('Login');
   const { login } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
