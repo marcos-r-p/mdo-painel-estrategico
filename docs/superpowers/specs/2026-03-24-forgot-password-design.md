@@ -52,7 +52,7 @@ mode: 'login' | 'forgotPassword' | 'resetSent'
 - Same visual layout as LoginPage (centered card, MdO logo, dark mode support)
 - Two password fields: "Nova senha" and "Confirmar nova senha"
 - Submit button: "Redefinir senha"
-- Validation: passwords must match, minimum 6 characters
+- Validation: passwords must match, minimum 8 characters
 - On submit: `supabase.auth.updateUser({ password })`
 - On success: show success message, then redirect to `/app` after 2 seconds
 - On error: show error banner
@@ -60,6 +60,15 @@ mode: 'login' | 'forgotPassword' | 'resetSent'
 ### Auth Flow
 
 The Supabase magic link includes tokens in the URL fragment. When the page loads, Supabase's `onAuthStateChange` fires a `PASSWORD_RECOVERY` event, establishing a session. The `updateUser` call uses this session to set the new password.
+
+**Critical: PASSWORD_RECOVERY event handling.** The existing `AuthContext.onAuthStateChange` listener will see `isAuthenticated = true` and the catch-all route (`path: '*'`) would redirect to `/app` before the user sees the reset form. To fix this:
+- In `AuthContext.tsx`, detect `_event === 'PASSWORD_RECOVERY'` and set a flag (e.g., `isPasswordRecovery`) exposed via context.
+- The catch-all route and any auth guards must NOT redirect when `isPasswordRecovery` is true.
+- `ResetPasswordPage` clears this flag after successful password update.
+
+### Expired/Invalid Links
+
+If the reset link is expired or invalid, the `PASSWORD_RECOVERY` event won't fire and no session will be established. The `ResetPasswordPage` must detect this (no session after a short timeout) and show: "Link expirado ou invalido. Solicite um novo link." with a link back to `/login`.
 
 ## Email Template (manual config)
 
@@ -106,7 +115,7 @@ HTML template with MdO branding:
                 </tr>
               </table>
               <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
-                Se voce nao solicitou esta alteracao, ignore este email. O link expira em 24 horas.
+                Se voce nao solicitou esta alteracao, ignore este email. O link expira em 1 hora.
               </p>
             </td>
           </tr>
@@ -130,6 +139,8 @@ HTML template with MdO branding:
 
 - **Modify:** `src/pages/LoginPage.tsx` — add mode state and forgot password / reset sent views
 - **Create:** `src/pages/ResetPasswordPage.tsx` — new password reset page
-- **Modify:** Router config (wherever routes are defined) — add `/reset-password` route
-- **Modify:** `src/services/api/auth.ts` — add `resetPassword` and `updatePassword` functions
+- **Modify:** `src/app/routes.tsx` — add `/reset-password` route BEFORE the catch-all `*` route (line 69)
+- **Modify:** `src/contexts/AuthContext.tsx` — add `PASSWORD_RECOVERY` event detection and `isPasswordRecovery` flag
+- **Modify:** `src/services/api/auth.ts` — add `resetPasswordForEmail` and `updateUserPassword` functions
+- **Note:** Components must call these service functions, not raw Supabase calls
 - **Manual:** Configure email template in Supabase Dashboard
