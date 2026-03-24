@@ -2,18 +2,22 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { resetPasswordForEmail } from '../services/api/auth';
+
+type Mode = 'login' | 'forgotPassword' | 'resetSent';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -27,6 +31,39 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  const handleForgotPasswordSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await resetPasswordForEmail(email, `${window.location.origin}/reset-password`);
+      setMode('resetSent');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar link de recuperacao.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputClassName = `
+    w-full rounded-lg border border-gray-300 bg-white px-3 py-2
+    text-sm text-gray-800 shadow-sm
+    placeholder:text-gray-400
+    focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
+    dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100
+    dark:placeholder:text-gray-500
+    dark:focus:border-green-400 dark:focus:ring-green-400
+  `;
+
+  const buttonClassName = `
+    w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold
+    text-white shadow-sm transition-colors
+    hover:bg-green-700
+    disabled:cursor-not-allowed disabled:opacity-50
+    dark:bg-green-500 dark:hover:bg-green-600
+  `;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 to-orange-50 px-4 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-900">
@@ -45,82 +82,126 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                placeholder="seu@email.com"
-                className="
-                  w-full rounded-lg border border-gray-300 bg-white px-3 py-2
-                  text-sm text-gray-800 shadow-sm
-                  placeholder:text-gray-400
-                  focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                  dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100
-                  dark:placeholder:text-gray-500
-                  dark:focus:border-green-400 dark:focus:ring-green-400
-                "
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Senha
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                placeholder="********"
-                className="
-                  w-full rounded-lg border border-gray-300 bg-white px-3 py-2
-                  text-sm text-gray-800 shadow-sm
-                  placeholder:text-gray-400
-                  focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
-                  dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100
-                  dark:placeholder:text-gray-500
-                  dark:focus:border-green-400 dark:focus:ring-green-400
-                "
-              />
-            </div>
-
-            {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
-                {error}
+          {/* Mode: login */}
+          {mode === 'login' && (
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                  className={inputClassName}
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="
-                w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold
-                text-white shadow-sm transition-colors
-                hover:bg-green-700
-                disabled:cursor-not-allowed disabled:opacity-50
-                dark:bg-green-500 dark:hover:bg-green-600
-              "
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </form>
+              <div>
+                <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Senha
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  placeholder="********"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setMode('forgotPassword'); }}
+                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                >
+                  Esqueceu sua senha?
+                </button>
+              </div>
+
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} className={buttonClassName}>
+                {loading ? 'Entrando...' : 'Entrar'}
+              </button>
+            </form>
+          )}
+
+          {/* Mode: forgotPassword */}
+          {mode === 'forgotPassword' && (
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+              <h2 className="text-center text-lg font-semibold text-gray-800 dark:text-gray-100">
+                Recuperar senha
+              </h2>
+
+              <div>
+                <label htmlFor="email-forgot" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email
+                </label>
+                <input
+                  id="email-forgot"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                  className={inputClassName}
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} className={buttonClassName}>
+                {loading ? 'Enviando...' : 'Enviar link de recuperacao'}
+              </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setMode('login'); }}
+                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                >
+                  Voltar ao login
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Mode: resetSent */}
+          {mode === 'resetSent' && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+                Enviamos um link de recuperacao para seu email. Verifique sua caixa de entrada.
+              </div>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setMode('login'); }}
+                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                >
+                  Voltar ao login
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
