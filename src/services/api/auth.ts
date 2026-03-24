@@ -51,16 +51,18 @@ export async function fetchUserProfile(
   // Try by ID first
   let { data, error } = await supabase
     .from('user_profiles')
-    .select('*')
+    .select('*, roles!inner(nome)')
     .eq('id', userId)
+    .is('deleted_at', null)
     .single()
 
   // Fallback to email if ID lookup failed
   if (error && email) {
     const result = await supabase
       .from('user_profiles')
-      .select('*')
+      .select('*, roles!inner(nome)')
       .eq('email', email)
+      .is('deleted_at', null)
       .single()
 
     data = result.data
@@ -71,5 +73,13 @@ export async function fetchUserProfile(
     throw new Error(`Erro ao carregar perfil: ${error.message}`)
   }
 
-  return data as UserProfile
+  if (data) {
+    return {
+      ...data,
+      role_nome: (data as any).roles.nome,
+      roles: undefined,
+    } as UserProfile
+  }
+
+  throw new Error('Perfil não encontrado')
 }

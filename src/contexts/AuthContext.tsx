@@ -55,6 +55,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     })
     if (error) throw error
+
+    // Check if user is deactivated
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('ativo, deleted_at')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profile && (!profile.ativo || profile.deleted_at)) {
+      await supabase.auth.signOut()
+      throw new Error('Conta desativada. Entre em contato com o administrador.')
+    }
+
     return data
   }
 
@@ -131,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearPasswordRecovery = useCallback(() => setIsPasswordRecovery(false), [])
 
-  const isAdmin = userProfile?.role === 'admin'
+  const isAdmin = userProfile?.role_nome === 'admin'
   const isAuthenticated = !!user
 
   const value: AuthContextType = {
