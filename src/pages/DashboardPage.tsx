@@ -10,8 +10,10 @@ import KPICard from '../components/ui/KPICard'
 import Badge from '../components/ui/Badge'
 import SectionCard from '../components/ui/SectionCard'
 import PieChart from '../components/charts/PieChart'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function DashboardPage() {
+  useDocumentTitle('Dashboard')
   const { isAdmin } = useAuth()
   const { data: connected } = useConnectionStatus()
   const blingSync = usePlatformSync('bling')

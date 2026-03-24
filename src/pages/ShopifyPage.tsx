@@ -1,4 +1,5 @@
 import { useState, useMemo, ReactNode } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useAllShopifyData } from '../services/queries/useShopifyQueries'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
@@ -29,6 +30,7 @@ interface ModalState {
 }
 
 export default function ShopifyPage() {
+  useDocumentTitle('Shopify')
   const { data: shopifyData, isLoading, isError } = useAllShopifyData()
 
   const [dataIni, setDataIni] = useState<string>(() => {

@@ -1,5 +1,6 @@
 import type React from 'react'
 import { useState } from 'react'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useAccessLogs, useLogStats } from '../../services/queries/useAccessLogsQueries'
 import { useUsers } from '../../services/queries/useUserManagementQueries'
 import type { AccessLogFilters } from '../../types/userManagement'
@@ -27,6 +28,7 @@ function EventBadge({ type }: { type: string }) {
 }
 
 export default function LogsAcessoPage() {
+  useDocumentTitle('Logs de Acesso')
   const [period, setPeriod] = useState<PeriodOption>('7d')
   const [filters, setFilters] = useState<AccessLogFilters>({
     page: 1,

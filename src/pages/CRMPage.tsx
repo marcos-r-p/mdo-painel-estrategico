@@ -1,4 +1,5 @@
 import { useCRMDashboard } from '../services/queries/useRDStationQueries'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { CRM_SEED } from '../data/seed'
 import DemoBanner from '../components/ui/DemoBanner'
 import Spinner from '../components/ui/Spinner'
@@ -461,6 +462,7 @@ function SecaoCRMAcoes({ crm }: CRMSectionProps) {
    COMPONENTE PRINCIPAL — CRMPage
    ═══════════════════════════════════════════════════════════════ */
 export default function CRMPage() {
+  useDocumentTitle('CRM')
   const { data: crmData, isLoading } = useCRMDashboard()
 
   const crm: CRMData = crmData ?? CRM_SEED
