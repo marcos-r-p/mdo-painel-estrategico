@@ -42,6 +42,8 @@ Sistema de gerenciamento de usuários para o MdO Painel Estratégico, permitindo
 
 O role `admin` sempre tem acesso a todas as páginas + seção Administração por hardcode — não precisa de registros em `role_permissions`.
 
+**Seed do role `leitor`:** todas as 14 páginas liberadas por padrão. O admin pode restringir depois. A página `dashboard` é sempre acessível a todos os roles (é o destino de fallback ao negar acesso).
+
 ### Nova tabela: `access_logs`
 
 | Coluna | Tipo | Descrição |
@@ -91,8 +93,9 @@ Uma Edge Function com roteamento por path param.
 | Rota | Método | Body | Ação |
 |------|--------|------|------|
 | `/invite` | POST | `{ email, nome?, role_id, send_email: bool, password? }` | Cria usuário via `auth.admin.createUser()`. Se `send_email: true`, envia convite. Se `false`, usa `password` fornecida. Cria `user_profiles` com `role_id`. |
-| `/update` | PATCH | `{ user_id, nome?, role_id?, ativo? }` | Atualiza `user_profiles`. Se `ativo: false`, seta `deleted_at = now()`. |
+| `/update` | PATCH | `{ user_id, nome?, role_id? }` | Atualiza nome e/ou role do usuário em `user_profiles`. Não lida com ativação/desativação. |
 | `/deactivate` | POST | `{ user_id }` | Soft delete: `deleted_at = now()`, `ativo = false`. Revoga sessões via `auth.admin.signOut(user_id)`. |
+| `/reactivate` | POST | `{ user_id }` | Reativa: `deleted_at = null`, `ativo = true`. Usuário pode fazer login novamente. |
 | `/delete` | DELETE | `{ user_id }` | Hard delete: remove de `auth.users` (cascade para `user_profiles`). |
 | `/list` | GET | query: `?include_deleted=bool` | Lista `user_profiles` com join em `roles`. Por padrão exclui deletados. |
 
@@ -196,6 +199,7 @@ Nova seção "Administração" no final do sidebar, visível apenas para admin:
 - `inviteUser(data)` — POST `/user-management/invite`
 - `updateUser(data)` — PATCH `/user-management/update`
 - `deactivateUser(userId)` — POST `/user-management/deactivate`
+- `reactivateUser(userId)` — POST `/user-management/reactivate`
 - `deleteUser(userId)` — DELETE `/user-management/delete`
 - `listUsers(includeDeleted?)` — GET `/user-management/list`
 
