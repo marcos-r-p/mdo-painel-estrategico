@@ -34,11 +34,9 @@ export async function getAccessToken(): Promise<string> {
 /**
  * Call a Supabase Edge Function to sync a single step of a platform.
  *
- * URL pattern: `{supabaseUrl}/functions/v1/{platform}-sync?tipo={tipo}&meses=1`
- *
- * Note: The original DashboardPage.jsx did not pass auth headers.
- * We now pass the Bearer token for Edge Functions that require authentication.
- * If the Edge Function has verify_jwt=false, the header is simply ignored.
+ * Includes both `Authorization` (user JWT) and `apikey` (Supabase anon key)
+ * headers. The apikey header is required for Supabase Edge Functions to
+ * respond with proper CORS headers.
  */
 export async function syncPlatformStep(
   platform: string,
@@ -51,6 +49,7 @@ export async function syncPlatformStep(
     {
       headers: {
         Authorization: `Bearer ${token}`,
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
       },
     },
   )
@@ -72,7 +71,6 @@ export async function syncPlatformStep(
 
 /** Return the Bling OAuth authorization URL. */
 export function getBlingOAuthURL(): string {
-  // Client ID sourced from env var; falls back to the known app ID
   const clientId = import.meta.env.VITE_BLING_CLIENT_ID ?? '567bba7562d27003649ad247d8bd0baad95d3435'
   return `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${clientId}&state=mdo`
 }
