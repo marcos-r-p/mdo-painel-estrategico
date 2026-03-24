@@ -1,9 +1,10 @@
 import { lazy, Suspense, type ReactNode } from 'react'
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import { RouteErrorFallback } from '../components/ui/ErrorFallback'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../hooks/useAuth'
+import { usePermissions } from '../hooks/usePermissions'
 
 // Lazy-load all pages
 const LoginPage = lazy(() => import('../pages/LoginPage'))
@@ -22,6 +23,9 @@ const AnaliseIAPage = lazy(() => import('../pages/AnaliseIAPage'))
 const MetasPage = lazy(() => import('../pages/MetasPage'))
 const AlertasPage = lazy(() => import('../pages/AlertasPage'))
 const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'))
+const UsuariosPage = lazy(() => import('../pages/admin/UsuariosPage'))
+const RolesPage = lazy(() => import('../pages/admin/RolesPage'))
+const LogsAcessoPage = lazy(() => import('../pages/admin/LogsAcessoPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, authLoading } = useAuth()
@@ -43,6 +47,26 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+function PageGuard({ pageKey, children }: { pageKey: string; children: ReactNode }) {
+  const { hasAccess, isLoading } = usePermissions()
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner />
+      </div>
+    )
+  }
+  if (!hasAccess(pageKey)) return <Navigate to="/app/dashboard" replace />
+  return <>{children}</>
+}
+
+function AdminGuard({ children }: { children: ReactNode }) {
+  const { isAdmin } = useAuth()
+  if (!isAdmin) return <Navigate to="/app/dashboard" replace />
+  return <>{children}</>
+}
+
 export const router = createBrowserRouter([
   { path: '/login', element: <Suspense fallback={<Spinner />}><LoginPage /></Suspense> },
   {
@@ -52,19 +76,28 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
-      { path: 'fluxo-caixa', element: <FluxoCaixaPage /> },
-      { path: 'clientes', element: <ClientesPage /> },
-      { path: 'analise-b2c', element: <AnaliseB2CPage /> },
-      { path: 'matriz-rfm', element: <MatrizRFMPage /> },
-      { path: 'canais-b2b', element: <CanaisB2BPage /> },
-      { path: 'produtos', element: <ProdutosPage /> },
-      { path: 'analise-temporal', element: <AnaliseTemporalPage /> },
-      { path: 'shopify', element: <ShopifyPage /> },
-      { path: 'crm', element: <CRMPage /> },
-      { path: 'funil', element: <FunilPage /> },
-      { path: 'analise-ia', element: <AnaliseIAPage /> },
-      { path: 'metas', element: <MetasPage /> },
-      { path: 'alertas', element: <AlertasPage /> },
+      { path: 'fluxo-caixa', element: <PageGuard pageKey="fluxo-caixa"><FluxoCaixaPage /></PageGuard> },
+      { path: 'clientes', element: <PageGuard pageKey="clientes"><ClientesPage /></PageGuard> },
+      { path: 'analise-b2c', element: <PageGuard pageKey="analise-b2c"><AnaliseB2CPage /></PageGuard> },
+      { path: 'matriz-rfm', element: <PageGuard pageKey="matriz-rfm"><MatrizRFMPage /></PageGuard> },
+      { path: 'canais-b2b', element: <PageGuard pageKey="canais-b2b"><CanaisB2BPage /></PageGuard> },
+      { path: 'produtos', element: <PageGuard pageKey="produtos"><ProdutosPage /></PageGuard> },
+      { path: 'analise-temporal', element: <PageGuard pageKey="analise-temporal"><AnaliseTemporalPage /></PageGuard> },
+      { path: 'shopify', element: <PageGuard pageKey="shopify"><ShopifyPage /></PageGuard> },
+      { path: 'crm', element: <PageGuard pageKey="crm"><CRMPage /></PageGuard> },
+      { path: 'funil', element: <PageGuard pageKey="funil"><FunilPage /></PageGuard> },
+      { path: 'analise-ia', element: <PageGuard pageKey="analise-ia"><AnaliseIAPage /></PageGuard> },
+      { path: 'metas', element: <PageGuard pageKey="metas"><MetasPage /></PageGuard> },
+      { path: 'alertas', element: <PageGuard pageKey="alertas"><AlertasPage /></PageGuard> },
+      {
+        path: 'admin',
+        element: <AdminGuard><Outlet /></AdminGuard>,
+        children: [
+          { path: 'usuarios', element: <UsuariosPage /> },
+          { path: 'roles', element: <RolesPage /> },
+          { path: 'logs', element: <LogsAcessoPage /> },
+        ],
+      },
     ],
   },
   { path: '/reset-password', element: <Suspense fallback={<Spinner />}><ResetPasswordPage /></Suspense> },
