@@ -16,4 +16,4 @@ export function resetSupabaseClient() {
   supabase = createClient(supabaseUrl, supabaseKey)
 }
 
-export { supabase, supabaseUrl }
+export { supabase, supabaseUrl, supabaseKey }

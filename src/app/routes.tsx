@@ -62,7 +62,16 @@ function PageGuard({ pageKey, children }: { pageKey: string; children: ReactNode
 }
 
 function AdminGuard({ children }: { children: ReactNode }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, authLoading } = useAuth()
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner />
+      </div>
+    )
+  }
+
   if (!isAdmin) return <Navigate to="/app/dashboard" replace />
   return <>{children}</>
 }
