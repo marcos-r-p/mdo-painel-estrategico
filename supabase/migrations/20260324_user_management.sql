@@ -14,19 +14,7 @@ CREATE TABLE IF NOT EXISTS public.roles (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- RLS on roles
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY authenticated_read ON public.roles
-  FOR SELECT
-  TO authenticated
-  USING (true);
-
-CREATE POLICY admin_write ON public.roles
-  FOR ALL
-  TO authenticated
-  USING (public.is_admin(auth.uid()))
-  WITH CHECK (public.is_admin(auth.uid()));
 
 -- -----------------------------------------------------------------------------
 -- 2. Helper function: is_admin
@@ -51,6 +39,18 @@ $$;
 
 -- Grant execute to authenticated users
 GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated;
+
+-- RLS on roles (after is_admin exists)
+CREATE POLICY authenticated_read ON public.roles
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY admin_write ON public.roles
+  FOR ALL
+  TO authenticated
+  USING (public.is_admin(auth.uid()))
+  WITH CHECK (public.is_admin(auth.uid()));
 
 -- -----------------------------------------------------------------------------
 -- 3. Seed system roles
