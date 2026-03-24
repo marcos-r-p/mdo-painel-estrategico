@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import type { RoleWithPermissions } from '../../types/userManagement'
+import { throwApiError } from './errors'
 
 export async function listRoles(): Promise<RoleWithPermissions[]> {
   const { data: roles, error } = await supabase
@@ -8,16 +9,21 @@ export async function listRoles(): Promise<RoleWithPermissions[]> {
     .order('is_system', { ascending: false })
     .order('nome')
 
-  if (error) throw error
+  if (error) throwApiError('listRoles', error)
 
+  // Count users per role using a single query that only selects role_id.
+  // Supabase JS does not support GROUP BY, so we aggregate client-side
+  // but only transfer the minimal column needed.
+  const roleIds = roles.map((r: { id: string }) => r.id)
   const { data: counts, error: countError } = await supabase
     .from('user_profiles')
     .select('role_id')
+    .in('role_id', roleIds)
     .is('deleted_at', null)
 
-  if (countError) throw countError
+  if (countError) throwApiError('listRoles.counts', countError)
 
-  const countMap = counts.reduce<Record<string, number>>((acc, u) => {
+  const countMap = (counts ?? []).reduce<Record<string, number>>((acc, u) => {
     acc[u.role_id] = (acc[u.role_id] || 0) + 1
     return acc
   }, {})
@@ -37,13 +43,13 @@ export async function createRole(nome: string, descricao: string | null, pageKey
     .select()
     .single()
 
-  if (error) throw error
+  if (error) throwApiError('createRole', error)
 
   if (pageKeys.length > 0) {
     const { error: permError } = await supabase
       .from('role_permissions')
       .insert(pageKeys.map((pk) => ({ role_id: role.id, page_key: pk })))
-    if (permError) throw permError
+    if (permError) throwApiError('createRole.permissions', permError)
   }
 
   return role
@@ -55,20 +61,20 @@ export async function updateRole(roleId: string, nome: string, descricao: string
     .update({ nome, descricao })
     .eq('id', roleId)
 
-  if (updateError) throw updateError
+  if (updateError) throwApiError('updateRole', updateError)
 
   const { error: deleteError } = await supabase
     .from('role_permissions')
     .delete()
     .eq('role_id', roleId)
 
-  if (deleteError) throw deleteError
+  if (deleteError) throwApiError('updateRole.deletePermissions', deleteError)
 
   if (pageKeys.length > 0) {
     const { error: insertError } = await supabase
       .from('role_permissions')
       .insert(pageKeys.map((pk) => ({ role_id: roleId, page_key: pk })))
-    if (insertError) throw insertError
+    if (insertError) throwApiError('updateRole.insertPermissions', insertError)
   }
 }
 
@@ -79,9 +85,11 @@ export async function deleteRole(roleId: string) {
     .eq('role_id', roleId)
     .is('deleted_at', null)
 
-  if (countError) throw countError
-  if (count && count > 0) throw new Error('Não é possível deletar role com usuários atribuídos')
+  if (countError) throwApiError('deleteRole.checkUsers', countError)
+  if (count && count > 0) {
+    throwApiError('deleteRole', new Error('Não é possível deletar role com usuários atribuídos'))
+  }
 
   const { error } = await supabase.from('roles').delete().eq('id', roleId)
-  if (error) throw error
+  if (error) throwApiError('deleteRole', error)
 }

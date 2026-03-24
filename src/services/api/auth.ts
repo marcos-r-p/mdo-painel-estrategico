@@ -4,6 +4,10 @@
 import { supabase } from '../supabase'
 import type { UserProfile } from '../../types/database'
 import type { AuthResponse } from '@supabase/supabase-js'
+import { throwApiError } from './errors'
+
+/** Shape returned by Supabase join: user_profiles + roles. */
+type ProfileWithRole = UserProfile & { roles: { nome: string } | null }
 
 /** Sign in with email and password. */
 export async function loginWithEmail(
@@ -70,16 +74,17 @@ export async function fetchUserProfile(
   }
 
   if (error) {
-    throw new Error(`Erro ao carregar perfil: ${error.message}`)
+    throwApiError('fetchUserProfile', error)
   }
 
   if (data) {
+    const profileWithRole = data as ProfileWithRole
     return {
       ...data,
-      role_nome: (data as any).roles.nome,
+      role_nome: profileWithRole.roles?.nome ?? '',
       roles: undefined,
     } as UserProfile
   }
 
-  throw new Error('Perfil não encontrado')
+  throwApiError('fetchUserProfile', new Error('Perfil não encontrado'))
 }
