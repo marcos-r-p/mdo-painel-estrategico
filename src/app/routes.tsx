@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import { RouteErrorFallback } from '../components/ui/ErrorFallback'
@@ -61,8 +61,13 @@ function PageGuard({ pageKey, children }: { pageKey: string; children: ReactNode
   return <>{children}</>
 }
 
+const ADMIN_CODE = 'mdo2026'
+
 function AdminGuard({ children }: { children: ReactNode }) {
   const { isAdmin, authLoading } = useAuth()
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('admin_unlocked') === 'true')
 
   if (authLoading) {
     return (
@@ -73,6 +78,46 @@ function AdminGuard({ children }: { children: ReactNode }) {
   }
 
   if (!isAdmin) return <Navigate to="/app/dashboard" replace />
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-sm">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center mx-auto mb-3">
+              <span className="text-white text-lg">🔑</span>
+            </div>
+            <h2 className="text-lg font-semibold dark:text-white">Área Administrativa</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Digite o código de acesso</p>
+          </div>
+          <form onSubmit={(e) => {
+            e.preventDefault()
+            if (code === ADMIN_CODE) {
+              sessionStorage.setItem('admin_unlocked', 'true')
+              setUnlocked(true)
+            } else {
+              setError('Código incorreto')
+              setCode('')
+            }
+          }}>
+            <input
+              type="password"
+              value={code}
+              onChange={(e) => { setCode(e.target.value); setError('') }}
+              className="w-full px-4 py-3 text-center text-lg tracking-widest rounded-lg border dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              placeholder="••••••"
+              autoFocus
+            />
+            {error && <p className="text-sm text-red-500 text-center mt-2">{error}</p>}
+            <button type="submit" className="w-full mt-4 px-4 py-2.5 rounded-lg bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors">
+              Entrar
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return <>{children}</>
 }
 
