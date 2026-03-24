@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useConnectionStatus } from '../services/queries/useDashboardQueries'
 import { usePlatformSync } from '../services/queries/useSyncMutations'
@@ -200,6 +200,28 @@ export default function DashboardPage() {
               <strong>{formatCurrency(DADOS.fluxoCaixa.saldoInicial)}</strong> para{' '}
               <strong>{formatCurrency(DADOS.fluxoCaixa.saldoFinal)}</strong>
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* === ALERT BANNER: Descobertas Shopify x CRM === */}
+      <div className="animate-fade-in rounded-xl border border-purple-300 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/40">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">&#x1F50D;</span>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-purple-800 dark:text-purple-300">
+              7 Descobertas Estrategicas — Cruzamento Shopify x CRM
+            </h3>
+            <p className="mt-1 text-sm text-purple-700 dark:text-purple-400">
+              40.067 clientes Shopify fora do CRM | 86 &quot;perdas&quot; que compraram no site |
+              100% dependencia de 1 vendedor | 43% das perdas por falta de follow-up
+            </p>
+            <Link
+              to="/app/alertas"
+              className="mt-2 inline-block text-xs font-medium text-purple-600 dark:text-purple-300 hover:underline"
+            >
+              Ver todas as descobertas e plano de acao &rarr;
+            </Link>
           </div>
         </div>
       </div>
