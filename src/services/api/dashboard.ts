@@ -41,15 +41,20 @@ export async function fetchDadosMes(mes: string): Promise<DadosMes> {
 
 /** Check which platforms have tokens / data in Supabase. */
 export async function fetchConnectionStatus(): Promise<ConnectionStatus> {
-  const [blingRes, shopifyRes, rdRes] = await Promise.all([
-    supabase.from('bling_tokens').select('id').eq('id', 1).maybeSingle(),
-    supabase.from('shopify_tokens').select('id').eq('id', 1).maybeSingle(),
-    supabase.from('rdstation_deals').select('id').limit(1),
-  ])
+  try {
+    const [blingRes, shopifyRes, rdRes] = await Promise.all([
+      supabase.from('bling_tokens').select('id').eq('id', 1).maybeSingle(),
+      supabase.from('shopify_tokens').select('id').eq('id', 1).maybeSingle(),
+      supabase.from('rdstation_deals').select('id').limit(1),
+    ])
 
-  return {
-    bling: !!blingRes.data,
-    shopify: !!shopifyRes.data,
-    rdstation: !rdRes.error && (rdRes.data?.length ?? 0) > 0,
+    return {
+      bling: !!blingRes.data,
+      shopify: !!shopifyRes.data,
+      rdstation: !rdRes.error && (rdRes.data?.length ?? 0) > 0,
+    }
+  } catch {
+    // If Supabase is unreachable, return all disconnected
+    return { bling: false, shopify: false, rdstation: false }
   }
 }

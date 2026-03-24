@@ -19,7 +19,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const fonteAtiva = searchParams.get('fonte') ?? 'bling'
 
   const { mesesDisponiveis, mesSelecionado, setMesSelecionado, resumoMensal } = usePeriodo()
-  const { data: connectionStatus } = useConnectionStatus()
+  const { data: connectionStatus, isLoading: connectionLoading, isError: connectionError } = useConnectionStatus()
 
   const resultado = useMemo(() => {
     const resumoAtual = resumoMensal?.find((r) => r.mes === mesSelecionado)
@@ -47,15 +47,21 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   }, [])
 
   // Derive dbStatus from connectionStatus
-  const dbStatus = connectionStatus
-    ? (connectionStatus.bling || connectionStatus.shopify ? 'online' : 'offline')
-    : 'conectando'
+  const dbStatus = connectionError
+    ? 'erro'
+    : connectionLoading
+      ? 'conectando'
+      : connectionStatus
+        ? (connectionStatus.bling || connectionStatus.shopify || connectionStatus.rdstation ? 'online' : 'offline')
+        : 'conectando'
 
   const dbStatusColor = dbStatus === 'online'
     ? 'bg-green-500'
-    : dbStatus === 'offline'
+    : dbStatus === 'erro'
       ? 'bg-red-500'
-      : 'bg-yellow-500'
+      : dbStatus === 'offline'
+        ? 'bg-red-500'
+        : 'bg-yellow-500'
 
   const isLucro = resultado != null && resultado >= 0
 
