@@ -56,18 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     if (error) throw error
 
-    // Check if user is deactivated
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('ativo, deleted_at')
-      .eq('id', data.user.id)
-      .single()
-
-    if (profile && (!profile.ativo || profile.deleted_at)) {
-      await supabase.auth.signOut()
-      throw new Error('Conta desativada. Entre em contato com o administrador.')
-    }
-
+    // Profile loading and deactivation check happen in onAuthStateChange
     // Fire and forget login log
     supabase.from('access_logs').insert({
       user_id: data.user.id,
@@ -141,7 +130,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (currentUser) {
-        await loadProfile(currentUser.id, currentUser.email)
+        try {
+          const profile = await loadProfile(currentUser.id, currentUser.email)
+          // Check if user is deactivated
+          if (profile && (!profile.ativo || profile.deleted_at)) {
+            await supabase.auth.signOut()
+            setUser(null)
+            setUserProfile(null)
+            return
+          }
+        } catch (err) {
+          console.error('[Auth] Erro ao carregar perfil no onAuthStateChange:', err)
+        }
       } else {
         setUserProfile(null)
       }
