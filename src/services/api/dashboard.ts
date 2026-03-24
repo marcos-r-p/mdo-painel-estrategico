@@ -6,25 +6,24 @@ import type { VwResumoMensal, VwClientesMes, VwUfMensal } from '../../types/data
 import type { ConnectionStatus, DadosMes } from '../../types/api'
 import { throwApiError } from './errors'
 
-/** Fetch all rows from vw_resumo_mensal, ordered by month descending. */
-export async function fetchResumoMensal(): Promise<VwResumoMensal[]> {
+/** Fetch monthly summary for the given source (bling or shopify). */
+export async function fetchResumoMensal(fonte: string): Promise<VwResumoMensal[]> {
   const { data, error } = await supabase
-    .from('vw_resumo_mensal')
-    .select('*')
-    .order('mes', { ascending: false })
+    .rpc('fn_resumo_mensal_por_fonte', { p_fonte: fonte })
 
   if (error) {
     throwApiError('fetchResumoMensal', error)
   }
 
-  return data ?? []
+  // RPC returns ascending; reverse so newest month comes first
+  return (data ?? []).reverse() as VwResumoMensal[]
 }
 
-/** Fetch clients and state-level sales for a given month in parallel. */
-export async function fetchDadosMes(mes: string): Promise<DadosMes> {
+/** Fetch clients and state-level sales for a given month and source in parallel. */
+export async function fetchDadosMes(mes: string, fonte: string): Promise<DadosMes> {
   const [clientesRes, ufRes] = await Promise.all([
-    supabase.from('vw_clientes_mes').select('*').eq('mes', mes),
-    supabase.from('vw_uf_mensal').select('*').eq('mes', mes),
+    supabase.rpc('fn_clientes_mes_por_fonte', { p_fonte: fonte, p_mes: mes }),
+    supabase.rpc('fn_uf_mensal_por_fonte', { p_fonte: fonte, p_mes: mes }),
   ])
 
   if (clientesRes.error) {

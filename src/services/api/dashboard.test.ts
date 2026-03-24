@@ -20,7 +20,7 @@ describe('fetchResumoMensal', () => {
 
   it('returns typed data on success', async () => {
     const fakeRows = [
-      { mes: '2026-03', receita_bruta: 50000, receita_total: 45000, pedidos: 100, ticket_medio: 450, clientes_ativos: 80, novos_clientes: 10, taxa_recompra: 44, custo_total: 30000, resultado: 15000 },
+      { mes: '2026-03', clientes: 80, receita: 45000, pedidos: 100, ticket_medio: 450, b2b: 30, b2c: 50, com_celular: 60, estados: 5 },
     ]
 
     const mockOrder = vi.fn().mockResolvedValue({ data: fakeRows, error: null })
@@ -60,7 +60,7 @@ describe('fetchDadosMes', () => {
   })
 
   it('returns clientes and estados on success', async () => {
-    const fakeClientes = [{ mes: '2026-03', cliente_id: '1', nome: 'Test', email: null, cidade: null, uf: 'DF', total_pedidos: 1, total_gasto: 100 }]
+    const fakeClientes = [{ mes: '2026-03', nome: 'Test', tipo: 'B2C', uf: 'DF', total_gasto: 100, total_pedidos: 1, ultima_compra: '2026-03-15' }]
     const fakeUfs = [{ mes: '2026-03', uf: 'DF', pedidos: 5, receita: 1000, clientes: 3 }]
 
      

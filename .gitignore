@@ -6,3 +6,34 @@ dist/
 .env.local
 .vercel
 .superpowers
+
+# Environment & Secrets (AIOX)
+.env.*.local
+*.key
+*.pem
+
+# Dependencies (AIOX)
+node_modules
+
+# Build & Logs (AIOX)
+build/
+*.log
+logs/
+
+# IDE & OS (AIOX)
+Thumbs.db
+.idea/
+*.swp
+
+# AIOX Local (AIOX)
+.aiox-core/local/
+.claude/settings.local.json
+.aiox/install-log.txt
+.aiox-core
+.codex
+.gemini
+.github
+.antigravity
+.cursor
+
+squads/
