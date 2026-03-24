@@ -2,8 +2,10 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePeriodo } from '../../services/queries/usePeriodoQueries'
 import { useConnectionStatus } from '../../services/queries/useDashboardQueries'
+import { resetSupabaseClient } from '../../services/supabase'
 import { formatMesLabel, formatCurrency } from '../../lib/formatters'
 
 interface HeaderProps {
@@ -18,6 +20,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
   const fonteAtiva = searchParams.get('fonte') ?? 'bling'
 
+  const queryClient = useQueryClient()
   const { mesesDisponiveis, mesSelecionado, setMesSelecionado, resumoMensal } = usePeriodo()
   const { data: connectionStatus, isLoading: connectionLoading, isError: connectionError } = useConnectionStatus()
 
@@ -263,9 +266,18 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           </svg>
         </button>
 
-        {/* DB status indicator */}
-        <div className="flex items-center gap-1.5" title={`Banco: ${dbStatus || 'desconhecido'}`}>
-          <div className={`w-2 h-2 rounded-full ${dbStatusColor}`} />
+        {/* DB status indicator — click to reset connection if stuck */}
+        <button
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+          title={dbStatus === 'online' ? 'Banco conectado' : 'Clique para reconectar'}
+          onClick={() => {
+            if (dbStatus !== 'online') {
+              resetSupabaseClient()
+              queryClient.invalidateQueries({ queryKey: ['dashboard', 'connection-status'] })
+            }
+          }}
+        >
+          <div className={`w-2 h-2 rounded-full ${dbStatusColor} ${dbStatus === 'conectando' ? 'animate-pulse' : ''}`} />
           <span
             className={`
               hidden md:inline text-xs
@@ -274,7 +286,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
           >
             DB
           </span>
-        </div>
+        </button>
 
         {/* Separator */}
         <div className={`hidden sm:block w-px h-6 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />

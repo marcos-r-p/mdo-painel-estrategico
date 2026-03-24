@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -9,7 +9,11 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+let supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey)
 
-/** Exported for use in Edge Function URL construction (sync.ts, etc.) */
-export { supabaseUrl }
+/** Reset the Supabase client — use when the connection enters a bad state */
+export function resetSupabaseClient() {
+  supabase = createClient(supabaseUrl, supabaseKey)
+}
+
+export { supabase, supabaseUrl }

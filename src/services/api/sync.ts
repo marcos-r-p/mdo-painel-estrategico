@@ -1,17 +1,17 @@
 // ─── Sync API Service ───────────────────────────────────────
-// Sync logic extracted from DashboardPage.
 
 import { supabase, supabaseUrl } from '../supabase'
 import type { SyncResponse } from '../../types/api'
 
 // ── Constants ────────────────────────────────────────────────
 
-/** Map of platform to the ordered list of sync step names. */
 export const SYNC_STEPS: Record<string, string[]> = {
   bling: ['contatos', 'produtos', 'pedidos', 'financeiro'],
   shopify: ['pedidos', 'clientes', 'produtos'],
   rdstation: ['all'],
 }
+
+const SYNC_TIMEOUT_MS = 25_000
 
 // ── Auth helper ──────────────────────────────────────────────
 
@@ -34,48 +34,63 @@ export async function getAccessToken(): Promise<string> {
 /**
  * Call a Supabase Edge Function to sync a single step of a platform.
  *
- * Includes both `Authorization` (user JWT) and `apikey` (Supabase anon key)
- * headers. The apikey header is required for Supabase Edge Functions to
- * respond with proper CORS headers.
+ * - Uses AbortController with 25s timeout to prevent hanging connections
+ * - Accepts optional pre-fetched token to avoid repeated getSession() calls
+ * - Passes mode=incremental by default
  */
 export async function syncPlatformStep(
   platform: string,
   tipo: string,
+  token?: string,
 ): Promise<SyncResponse> {
-  const token = await getAccessToken()
+  const authToken = token ?? await getAccessToken()
 
-  const res = await fetch(
-    `${supabaseUrl}/functions/v1/${platform}-sync?tipo=${tipo}&meses=1`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/functions/v1/${platform}-sync?tipo=${tipo}&meses=1&mode=incremental`,
+      {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        signal: controller.signal,
       },
-    },
-  )
+    )
 
-  if (!res.ok) {
-    throw new Error(`Sync ${platform}/${tipo} falhou: HTTP ${res.status}`)
+    clearTimeout(timeout)
+
+    if (!res.ok) {
+      throw new Error(`Sync ${platform}/${tipo} falhou: HTTP ${res.status}`)
+    }
+
+    const data: SyncResponse = await res.json()
+
+    if (data.error) {
+      throw new Error(data.error)
+    }
+
+    return data
+  } catch (err) {
+    clearTimeout(timeout)
+
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Sync ${platform}/${tipo} timeout (${SYNC_TIMEOUT_MS / 1000}s)`)
+    }
+
+    throw err
   }
-
-  const data: SyncResponse = await res.json()
-
-  if (data.error) {
-    throw new Error(data.error)
-  }
-
-  return data
 }
 
 // ── OAuth URLs ───────────────────────────────────────────────
 
-/** Return the Bling OAuth authorization URL. */
 export function getBlingOAuthURL(): string {
   const clientId = import.meta.env.VITE_BLING_CLIENT_ID ?? '567bba7562d27003649ad247d8bd0baad95d3435'
   return `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${clientId}&state=mdo`
 }
 
-/** Return the Shopify OAuth callback URL (via Supabase Edge Function). */
 export function getShopifyOAuthURL(): string {
   return `${supabaseUrl}/functions/v1/shopify-callback`
 }
