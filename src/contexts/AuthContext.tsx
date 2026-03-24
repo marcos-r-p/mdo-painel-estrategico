@@ -124,9 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
     // Listen for auth state changes
+    // IMPORTANT: handler must NOT be async — Supabase SDK awaits handlers
+    // internally, which blocks signInWithPassword from resolving
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return
       const currentUser = session?.user ?? null
       setUser(currentUser)
@@ -136,23 +138,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (currentUser) {
-        try {
-          const profile = await loadProfile(currentUser.id, currentUser.email)
-          // Check if user is deactivated
-          if (profile && (!profile.ativo || profile.deleted_at)) {
-            await supabase.auth.signOut()
-            setUser(null)
-            setUserProfile(null)
-            return
-          }
-        } catch (err) {
-          console.error('[Auth] Erro ao carregar perfil no onAuthStateChange:', err)
-        }
+        // Load profile without blocking the auth state change
+        loadProfile(currentUser.id, currentUser.email)
+          .then((profile) => {
+            if (!mounted) return
+            if (profile && (!profile.ativo || profile.deleted_at)) {
+              supabase.auth.signOut()
+              setUser(null)
+              setUserProfile(null)
+            }
+            setAuthLoading(false)
+          })
+          .catch((err) => {
+            console.error('[Auth] Erro ao carregar perfil:', err)
+            if (mounted) setAuthLoading(false)
+          })
       } else {
         setUserProfile(null)
+        setAuthLoading(false)
       }
-
-      setAuthLoading(false)
     })
 
     return () => {
