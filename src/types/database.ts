@@ -3,30 +3,28 @@
 
 // ── Views ────────────────────────────────────────────────────
 
-/** vw_resumo_mensal — monthly summary view */
+/** fn_resumo_mensal_por_fonte / vw_resumo_mensal — monthly summary */
 export interface VwResumoMensal {
   mes: string;
-  receita_bruta: number;
-  receita_total: number;
+  clientes: number;
+  receita: number;
   pedidos: number;
   ticket_medio: number;
-  clientes_ativos: number;
-  novos_clientes: number;
-  taxa_recompra: number;
-  custo_total: number;
-  resultado: number;
+  b2b: number;
+  b2c: number;
+  com_celular: number;
+  estados: number;
 }
 
-/** vw_clientes_mes — clients per month view */
+/** fn_clientes_mes_por_fonte / vw_clientes_mes — clients per month */
 export interface VwClientesMes {
   mes: string;
-  cliente_id: string;
   nome: string;
-  email: string | null;
-  cidade: string | null;
-  uf: string | null;
-  total_pedidos: number;
+  tipo: string;
+  uf: string;
   total_gasto: number;
+  total_pedidos: number;
+  ultima_compra: string;
 }
 
 /** vw_uf_mensal — monthly sales by state view */
@@ -173,15 +171,3 @@ export interface UserProfile {
   updated_at: string;
 }
 
-// ── Other Tables ─────────────────────────────────────────────
-
-export interface Importacao {
-  id: number;
-  tipo: string;
-  arquivo: string | null;
-  registros: number | null;
-  status: string;
-  mensagem: string | null;
-  user_id: string | null;
-  created_at: string;
-}

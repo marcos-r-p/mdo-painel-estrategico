@@ -1,10 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { updateUserPassword } from '../services/api/auth';
 
 export default function ResetPasswordPage() {
+  useDocumentTitle('Redefinir Senha');
   const { isPasswordRecovery, clearPasswordRecovery, user, authLoading } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();

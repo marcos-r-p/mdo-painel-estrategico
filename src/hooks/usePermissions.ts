@@ -19,7 +19,6 @@ export function usePermissions() {
       return new Set(data.map((r) => r.page_key))
     },
     enabled: !!userProfile?.role_id && !isAdmin,
-    staleTime: 5 * 60 * 1000,
   })
 
   return {

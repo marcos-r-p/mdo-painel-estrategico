@@ -7,6 +7,7 @@ import KPICard from '../components/ui/KPICard'
 import Badge from '../components/ui/Badge'
 import DateRangePicker from '../components/ui/DateRangePicker'
 import ProgressBar from '../components/ui/ProgressBar'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 interface DateRange {
   dataIni: string
@@ -14,6 +15,7 @@ interface DateRange {
 }
 
 export default function ClientesPage() {
+  useDocumentTitle('Clientes')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
 

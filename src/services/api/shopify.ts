@@ -3,6 +3,7 @@
 
 import { supabase } from '../supabase'
 import type { ShopifyPedido, ShopifyCliente, ShopifyProduto } from '../../types/database'
+import { throwApiError } from './errors'
 
 /** Result shape for all Shopify data. */
 export interface ShopifyData {
@@ -19,7 +20,7 @@ export async function fetchShopifyPedidos(): Promise<ShopifyPedido[]> {
     .limit(5000)
 
   if (error) {
-    throw new Error(`Erro ao carregar pedidos Shopify: ${error.message}`)
+    throwApiError('fetchShopifyPedidos', error)
   }
 
   return (data ?? []) as ShopifyPedido[]
@@ -33,7 +34,7 @@ export async function fetchShopifyClientes(): Promise<ShopifyCliente[]> {
     .limit(5000)
 
   if (error) {
-    throw new Error(`Erro ao carregar clientes Shopify: ${error.message}`)
+    throwApiError('fetchShopifyClientes', error)
   }
 
   return (data ?? []) as ShopifyCliente[]
@@ -47,7 +48,7 @@ export async function fetchShopifyProdutos(): Promise<ShopifyProduto[]> {
     .limit(5000)
 
   if (error) {
-    throw new Error(`Erro ao carregar produtos Shopify: ${error.message}`)
+    throwApiError('fetchShopifyProdutos', error)
   }
 
   return (data ?? []) as ShopifyProduto[]

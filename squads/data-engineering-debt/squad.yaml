@@ -1,0 +1,35 @@
+name: data-engineering-debt
+version: "1.0.0"
+description: Squad de 3 data engineers para resolver 13 debitos tecnicos do backend de dados
+author: Dara (@data-engineer) + Craft (@squad-creator)
+created: "2026-03-24"
+
+references:
+  analysis: docs/TECHNICAL-DEBT-DATABASE.md
+  report: docs/TECHNICAL-DEBT-REPORT.md
+  database: giecmntojoirganbgcrk (Supabase, sa-east-1)
+
+agents:
+  - id: de-1-security
+    name: Security Engineer
+    focus: RLS policies, tokens, SECURITY DEFINER
+    debitos: [DB-C1, DB-C2, DB-H5, DB-M4]
+    sprint: 1
+
+  - id: de-2-performance
+    name: Performance Engineer
+    focus: Indexes, views, paginacao, FKs
+    debitos: [DB-H1, DB-M2, DB-M3, DB-L1]
+    sprint: 1-2
+
+  - id: de-3-schema
+    name: Schema Architect
+    focus: Types, timestamps, triggers, unificacao
+    debitos: [DB-H2, DB-H3, DB-M1, DB-L2, DB-L3, DB-L4]
+    sprint: 2-3
+
+execution:
+  strategy: parallel
+  dependencies:
+    - de-1-security blocks de-2-performance on DB-M3 (paginacao depende de RLS correto)
+    - de-3-schema depends on de-2-performance for DB-L4 (unificacao depende de views consolidadas)

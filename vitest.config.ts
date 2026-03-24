@@ -9,6 +9,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    exclude: ['node_modules', '.aiox-core', 'dist'],
   },
   resolve: {
     alias: {

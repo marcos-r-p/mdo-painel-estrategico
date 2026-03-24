@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
@@ -50,6 +51,7 @@ const FAIXAS: Faixa[] = [
 ]
 
 export default function AnaliseB2CPage() {
+  useDocumentTitle('Análise B2C')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { supabase } from '../services/supabase'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
@@ -24,6 +25,7 @@ interface Conversion {
 }
 
 export default function FunilPage() {
+  useDocumentTitle('Funil')
   const [pedidos, setPedidos] = useState<PedidoRow[]>([])
   const [loading, setLoading] = useState<boolean>(true)
 

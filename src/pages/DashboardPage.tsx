@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useConnectionStatus } from '../services/queries/useDashboardQueries'
 import { usePlatformSync } from '../services/queries/useSyncMutations'
@@ -10,12 +10,11 @@ import KPICard from '../components/ui/KPICard'
 import Badge from '../components/ui/Badge'
 import SectionCard from '../components/ui/SectionCard'
 import PieChart from '../components/charts/PieChart'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function DashboardPage() {
+  useDocumentTitle('Dashboard')
   const { isAdmin } = useAuth()
-  const [searchParams] = useSearchParams()
-  const _fonteAtiva = searchParams.get('fonte') ?? 'bling'
-
   const { data: connected } = useConnectionStatus()
   const blingSync = usePlatformSync('bling')
   const shopifySync = usePlatformSync('shopify')

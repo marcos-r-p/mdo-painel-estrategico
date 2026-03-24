@@ -1,4 +1,5 @@
 import { useEffect, useCallback, type ReactNode } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface DetailModalProps {
   isOpen: boolean;
@@ -8,6 +9,8 @@ interface DetailModalProps {
 }
 
 export default function DetailModal({ isOpen, onClose, title, children }: DetailModalProps) {
+  const focusTrapRef = useFocusTrap(isOpen);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose?.();
@@ -43,6 +46,7 @@ export default function DetailModal({ isOpen, onClose, title, children }: Detail
 
       {/* Card */}
       <div
+        ref={focusTrapRef}
         className="
           relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col
           overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl

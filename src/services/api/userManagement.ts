@@ -1,9 +1,9 @@
-import { supabase, supabaseUrl } from '../supabase'
+import { supabase, supabaseUrl, supabaseKey } from '../supabase'
 import type { InviteUserPayload, UpdateUserPayload } from '../../types/userManagement'
 
 const FUNCTION_URL = `${supabaseUrl}/functions/v1/user-management`
 
-async function callEdgeFunction(action: string, options: RequestInit = {}) {
+async function callEdgeFunction(action: string, options: globalThis.RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
 
@@ -12,7 +12,7 @@ async function callEdgeFunction(action: string, options: RequestInit = {}) {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
-      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      apikey: supabaseKey,
       ...options.headers,
     },
   })

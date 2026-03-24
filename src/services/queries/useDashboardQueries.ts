@@ -4,20 +4,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchResumoMensal, fetchDadosMes, fetchConnectionStatus } from '../api/dashboard'
 
-export function useResumoMensal() {
+export function useResumoMensal(fonte: string) {
   return useQuery({
-    queryKey: ['dashboard', 'resumo-mensal'],
-    queryFn: fetchResumoMensal,
-    staleTime: 5 * 60 * 1000,
+    queryKey: ['dashboard', 'resumo-mensal', fonte],
+    queryFn: () => fetchResumoMensal(fonte),
   })
 }
 
-export function useDadosMes(mes: string | null) {
+export function useDadosMes(mes: string | null, fonte: string) {
   return useQuery({
-    queryKey: ['dashboard', 'dados-mes', mes],
-    queryFn: () => fetchDadosMes(mes!),
+    queryKey: ['dashboard', 'dados-mes', mes, fonte],
+    queryFn: () => fetchDadosMes(mes!, fonte),
     enabled: !!mes,
-    staleTime: 5 * 60 * 1000,
   })
 }
 
