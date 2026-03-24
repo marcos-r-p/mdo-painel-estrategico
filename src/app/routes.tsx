@@ -21,6 +21,7 @@ const FunilPage = lazy(() => import('../pages/FunilPage'))
 const AnaliseIAPage = lazy(() => import('../pages/AnaliseIAPage'))
 const MetasPage = lazy(() => import('../pages/MetasPage'))
 const AlertasPage = lazy(() => import('../pages/AlertasPage'))
+const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, authLoading } = useAuth()
@@ -66,5 +67,6 @@ export const router = createBrowserRouter([
       { path: 'alertas', element: <AlertasPage /> },
     ],
   },
+  { path: '/reset-password', element: <Suspense fallback={<Spinner />}><ResetPasswordPage /></Suspense> },
   { path: '*', element: <Navigate to="/app" replace /> },
 ])
