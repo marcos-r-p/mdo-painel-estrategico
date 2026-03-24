@@ -47,17 +47,17 @@ export default function UserMenu() {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {user?.email || ''}
             </p>
-            {userProfile?.role && (
+            {userProfile?.role_nome && (
               <span
                 className={`
                   inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium
-                  ${userProfile.role === 'admin'
+                  ${userProfile.role_nome === 'admin'
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400'
                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                   }
                 `}
               >
-                {userProfile.role}
+                {userProfile.role_nome}
               </span>
             )}
           </div>

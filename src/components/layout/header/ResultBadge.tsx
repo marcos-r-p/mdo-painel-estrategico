@@ -1,14 +1,17 @@
 import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { usePeriodo } from '../../../services/queries/usePeriodoQueries'
 import { formatCurrency } from '../../../lib/formatters'
 
 export default function ResultBadge() {
-  const { resumoMensal, mesSelecionado } = usePeriodo()
+  const [searchParams] = useSearchParams()
+  const fonteAtiva = searchParams.get('fonte') ?? 'bling'
+  const { resumoMensal, mesSelecionado } = usePeriodo(fonteAtiva)
 
   const resultado = useMemo(() => {
     const resumoAtual = resumoMensal?.find((r) => r.mes === mesSelecionado)
     if (!resumoAtual) return null
-    return (resumoAtual.receita_total || 0) - (resumoAtual.custo_total || 0)
+    return resumoAtual.receita || 0
   }, [resumoMensal, mesSelecionado])
 
   if (resultado == null) return null

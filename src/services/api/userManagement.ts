@@ -3,7 +3,7 @@ import type { InviteUserPayload, UpdateUserPayload } from '../../types/userManag
 
 const FUNCTION_URL = `${supabaseUrl}/functions/v1/user-management`
 
-async function callEdgeFunction(action: string, options: RequestInit = {}) {
+async function callEdgeFunction(action: string, options: globalThis.RequestInit = {}) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
 

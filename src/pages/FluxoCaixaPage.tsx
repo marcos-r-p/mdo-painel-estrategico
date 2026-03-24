@@ -21,6 +21,7 @@ interface DRELinha {
 }
 
 export default function FluxoCaixaPage() {
+  useDocumentTitle('Fluxo de Caixa')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
 

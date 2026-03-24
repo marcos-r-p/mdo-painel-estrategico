@@ -1,5 +1,5 @@
 import { useTheme } from '../../hooks/useTheme'
-import { ResultBadge, PeriodSelector, SourceToggle, DbStatusIndicator, UserMenu } from './header'
+import { ResultBadge, PeriodSelector, SourceToggle, DbStatusIndicator, UserMenu } from './header/index'
 
 interface HeaderProps {
   onToggleSidebar: () => void

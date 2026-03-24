@@ -143,7 +143,7 @@ describe('fetchUserProfile', () => {
     const result = await fetchUserProfile('user-1')
     expect(result.role_nome).toBe('admin')
     expect(result.id).toBe('user-1')
-    expect(result.roles).toBeUndefined()
+    expect((result as Record<string, unknown>).roles).toBeUndefined()
   })
 
   it('falls back to email lookup when ID lookup fails', async () => {

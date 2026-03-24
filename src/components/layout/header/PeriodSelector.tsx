@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { usePeriodo } from '../../../services/queries/usePeriodoQueries'
 import { formatMesLabel } from '../../../lib/formatters'
 
 export default function PeriodSelector() {
-  const { mesesDisponiveis, mesSelecionado, setMesSelecionado } = usePeriodo()
+  const [searchParams] = useSearchParams()
+  const fonteAtiva = searchParams.get('fonte') ?? 'bling'
+  const { mesesDisponiveis, mesSelecionado, setMesSelecionado } = usePeriodo(fonteAtiva)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 

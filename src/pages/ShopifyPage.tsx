@@ -7,21 +7,7 @@ import DateRangePicker from '../components/ui/DateRangePicker'
 import KPICard from '../components/ui/KPICard'
 import DetailModal from '../components/ui/DetailModal'
 import Spinner from '../components/ui/Spinner'
-
-// ─── Types ───
-interface ShopifyPedido {
-  id?: string | number
-  numero_pedido?: string
-  order_number?: string
-  data_pedido?: string
-  cliente?: string
-  nome_cliente?: string
-  valor_total?: number
-  status_financeiro?: string
-  uf?: string
-  estado?: string
-  [key: string]: unknown
-}
+import type { ShopifyPedido } from '../types/database'
 
 interface ModalState {
   open: boolean
@@ -65,7 +51,7 @@ export default function ShopifyPage() {
     return {
       pedidos: total,
       receita,
-      clientes: new Set(allFiltered.map((p) => p.cliente || p.nome_cliente || '')).size,
+      clientes: new Set(allFiltered.map((p) => p.nome_cliente || '')).size,
       produtos: shopifyData?.produtos?.length || 0,
       ticket,
     }
@@ -80,11 +66,11 @@ export default function ShopifyPage() {
       return p.data_pedido >= dataIni && p.data_pedido <= dataFim
     })
     allFiltered.forEach((p) => {
-      const uf = (p.uf || p.estado || '?') as string
+      const uf = (p.uf || '?') as string
       if (!map[uf]) map[uf] = { uf, total_pedidos: 0, receita: 0, clientes: new Set() }
       map[uf].total_pedidos++
       map[uf].receita += Number(p.valor_total) || 0
-      map[uf].clientes.add((p.cliente || p.nome_cliente || '') as string)
+      map[uf].clientes.add((p.nome_cliente || '') as string)
     })
     return Object.values(map)
       .map((e) => ({ ...e, clientes: e.clientes.size }))
@@ -187,22 +173,22 @@ export default function ShopifyPage() {
                   className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50"
                 >
                   <td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">
-                    {p.numero_pedido || p.order_number || '\u2014'}
+                    {p.numero || p.shopify_id || '\u2014'}
                   </td>
                   <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
                     {p.data_pedido ? new Date(p.data_pedido).toLocaleDateString('pt-BR') : '\u2014'}
                   </td>
                   <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-                    {p.cliente || p.nome_cliente || '\u2014'}
+                    {p.nome_cliente || '\u2014'}
                   </td>
                   <td className="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300">
                     {formatCurrency(p.valor_total || 0)}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {statusBadge(p.status_financeiro)}
+                    {statusBadge(p.status_financeiro ?? undefined)}
                   </td>
                   <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
-                    {p.uf || p.estado || '\u2014'}
+                    {p.uf || '\u2014'}
                   </td>
                 </tr>
               ))}

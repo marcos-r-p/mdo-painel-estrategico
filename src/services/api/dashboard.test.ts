@@ -28,7 +28,7 @@ describe('fetchResumoMensal', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockFrom.mockReturnValue({ select: mockSelect } as any)
 
-    const result = await fetchResumoMensal()
+    const result = await fetchResumoMensal('bling')
     expect(result).toEqual(fakeRows)
     expect(result).toHaveLength(1)
     expect(result[0].mes).toBe('2026-03')
@@ -40,7 +40,7 @@ describe('fetchResumoMensal', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockFrom.mockReturnValue({ select: mockSelect } as any)
 
-    const result = await fetchResumoMensal()
+    const result = await fetchResumoMensal('bling')
     expect(result).toEqual([])
   })
 
@@ -73,7 +73,7 @@ describe('fetchDadosMes', () => {
       }),
     }) as any)
 
-    const result = await fetchDadosMes('2026-03')
+    const result = await fetchDadosMes('2026-03', 'bling')
     expect(result.clientes).toEqual(fakeClientes)
     expect(result.estados).toEqual(fakeUfs)
   })

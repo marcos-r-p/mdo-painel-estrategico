@@ -15,6 +15,7 @@ interface DateRange {
 }
 
 export default function ClientesPage() {
+  useDocumentTitle('Clientes')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
 
