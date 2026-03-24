@@ -11,14 +11,6 @@ export interface SyncResponse {
   sincronizados?: Record<string, number | string>;
 }
 
-/** Sync step progress used by the UI during multi-step sync */
-export interface SyncStepStatus {
-  etapa?: string;
-  status?: 'ok' | 'error';
-  error?: string;
-  sincronizados?: Record<string, number | string>;
-}
-
 /** Connection status flags for each platform */
 export interface ConnectionStatus {
   bling: boolean;
@@ -32,18 +24,3 @@ export interface DadosMes {
   estados: VwUfMensal[];
 }
 
-/** RD Station REST API response types (used by CRMPage fallback path) */
-export interface RDStationAPIResponse {
-  deals?: Array<{
-    id: string;
-    name: string;
-    amount_montly: number;
-    stage: { id: string; name: string };
-    contact: { name: string; email: string };
-  }>;
-  deal_stages?: Array<{
-    id: string;
-    name: string;
-    order: number;
-  }>;
-}

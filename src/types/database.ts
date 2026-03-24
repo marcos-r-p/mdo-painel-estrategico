@@ -173,15 +173,3 @@ export interface UserProfile {
   updated_at: string;
 }
 
-// ── Other Tables ─────────────────────────────────────────────
-
-export interface Importacao {
-  id: number;
-  tipo: string;
-  arquivo: string | null;
-  registros: number | null;
-  status: string;
-  mensagem: string | null;
-  user_id: string | null;
-  created_at: string;
-}

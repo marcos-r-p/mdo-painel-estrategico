@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (userId: string, email?: string): Promise<UserProfile | null> => {
       try {
         const profile = await fetchUserProfile(userId, email)
-        console.log('[Auth] Perfil carregado:', profile)
         setUserProfile(profile)
         return profile
       } catch (err) {

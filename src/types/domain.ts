@@ -21,10 +21,6 @@ export interface KPIData {
 
 export type BadgeType = 'critico' | 'alto' | 'medio' | 'baixo' | 'positivo';
 
-// ── Database Status ──────────────────────────────────────────
-
-export type DbStatus = 'conectando' | 'conectado' | 'vazio' | 'offline';
-
 // ── CRM Types ────────────────────────────────────────────────
 
 export interface FunilEtapa {
@@ -96,14 +92,6 @@ export interface CRMData {
   responsaveis: CRMResponsavel[];
   origens: CRMOrigem[];
   saude: CRMSaude;
-}
-
-// ── Seed Data Wrapper ────────────────────────────────────────
-
-/** Wrapper to mark demo/seed data — used by fallback when APIs are unavailable */
-export interface SeedData<T> {
-  data: T;
-  isDemoData: true;
 }
 
 // ── Navigation ───────────────────────────────────────────────

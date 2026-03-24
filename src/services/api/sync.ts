@@ -1,6 +1,6 @@
 // ─── Sync API Service ───────────────────────────────────────
 
-import { supabase, supabaseUrl } from '../supabase'
+import { supabase, supabaseUrl, supabaseKey } from '../supabase'
 import type { SyncResponse } from '../../types/api'
 
 // ── Constants ────────────────────────────────────────────────
@@ -54,7 +54,7 @@ export async function syncPlatformStep(
       {
         headers: {
           Authorization: `Bearer ${authToken}`,
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          apikey: supabaseKey,
         },
         signal: controller.signal,
       },

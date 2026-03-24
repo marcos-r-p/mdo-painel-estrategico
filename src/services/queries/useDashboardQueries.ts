@@ -8,7 +8,6 @@ export function useResumoMensal() {
   return useQuery({
     queryKey: ['dashboard', 'resumo-mensal'],
     queryFn: fetchResumoMensal,
-    staleTime: 5 * 60 * 1000,
   })
 }
 
@@ -17,7 +16,6 @@ export function useDadosMes(mes: string | null) {
     queryKey: ['dashboard', 'dados-mes', mes],
     queryFn: () => fetchDadosMes(mes!),
     enabled: !!mes,
-    staleTime: 5 * 60 * 1000,
   })
 }
 

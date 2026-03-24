@@ -6,13 +6,6 @@ export interface Role {
   created_at: string
 }
 
-export interface RolePermission {
-  id: string
-  role_id: string
-  page_key: string
-  created_at: string
-}
-
 export interface RoleWithPermissions extends Role {
   permissions: string[] // page_keys
   user_count: number

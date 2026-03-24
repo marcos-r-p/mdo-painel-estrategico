@@ -1,5 +1,4 @@
 import { useState, useMemo, ReactNode } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { useAllShopifyData } from '../services/queries/useShopifyQueries'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
@@ -30,9 +29,6 @@ interface ModalState {
 }
 
 export default function ShopifyPage() {
-  const [searchParams] = useSearchParams()
-  const _fonteAtiva = searchParams.get('fonte')
-
   const { data: shopifyData, isLoading, isError } = useAllShopifyData()
 
   const [dataIni, setDataIni] = useState<string>(() => {

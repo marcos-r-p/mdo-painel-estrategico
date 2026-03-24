@@ -5,7 +5,6 @@ export function useRoles() {
   return useQuery({
     queryKey: ['roles'],
     queryFn: api.listRoles,
-    staleTime: 5 * 60 * 1000,
   })
 }
 
