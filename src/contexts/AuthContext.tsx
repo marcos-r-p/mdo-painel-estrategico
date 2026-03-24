@@ -17,9 +17,11 @@ export interface AuthContextType {
   authLoading: boolean
   isAdmin: boolean
   isAuthenticated: boolean
+  isPasswordRecovery: boolean
   login: (email: string, password: string) => Promise<unknown>
   logout: () => Promise<void>
   loadProfile: (userId: string, email?: string) => Promise<UserProfile | null>
+  clearPasswordRecovery: () => void
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null)
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
   const loadProfile = useCallback(
     async (userId: string, email?: string): Promise<UserProfile | null> => {
@@ -106,6 +109,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = session?.user ?? null
       setUser(currentUser)
 
+      if (_event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true)
+      }
+
       if (currentUser) {
         await loadProfile(currentUser.id, currentUser.email)
       } else {
@@ -122,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadProfile])
 
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false)
+
   const isAdmin = userProfile?.role === 'admin'
   const isAuthenticated = !!user
 
@@ -131,9 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authLoading,
     isAdmin,
     isAuthenticated,
+    isPasswordRecovery,
     login,
     logout,
     loadProfile,
+    clearPasswordRecovery,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
