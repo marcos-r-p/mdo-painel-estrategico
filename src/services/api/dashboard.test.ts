@@ -8,7 +8,7 @@ vi.mock('../supabase', () => ({
   supabaseUrl: 'https://test.supabase.co',
 }))
 
-import { fetchResumoMensal, fetchDadosMes } from './dashboard'
+import { fetchResumoMensal, fetchDadosMes, fetchConnectionStatus } from './dashboard'
 import { supabase } from '../supabase'
 
 const mockFrom = vi.mocked(supabase.from)
@@ -106,5 +106,79 @@ describe('fetchDadosMes', () => {
     }) as any)
 
     await expect(fetchDadosMes('2026-03')).rejects.toThrow('Erro ao carregar UFs do mês: uf error')
+  })
+})
+
+describe('fetchConnectionStatus', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns connected status when all tokens exist', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'bling_tokens') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: 1 }, error: null }),
+            }),
+          }),
+        } as any
+      }
+      if (table === 'shopify_tokens') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: 1 }, error: null }),
+            }),
+          }),
+        } as any
+      }
+      if (table === 'rdstation_deals') {
+        return {
+          select: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: [{ id: 1 }], error: null }),
+          }),
+        } as any
+      }
+      return { select: vi.fn() } as any
+    })
+
+    const result = await fetchConnectionStatus()
+    expect(result).toEqual({ bling: true, shopify: true, rdstation: true })
+  })
+
+  it('returns disconnected status when no tokens exist', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'bling_tokens' || table === 'shopify_tokens') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+        } as any
+      }
+      if (table === 'rdstation_deals') {
+        return {
+          select: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        } as any
+      }
+      return { select: vi.fn() } as any
+    })
+
+    const result = await fetchConnectionStatus()
+    expect(result).toEqual({ bling: false, shopify: false, rdstation: false })
+  })
+
+  it('returns all disconnected when supabase throws', async () => {
+    mockFrom.mockImplementation(() => {
+      throw new Error('network error')
+    })
+
+    const result = await fetchConnectionStatus()
+    expect(result).toEqual({ bling: false, shopify: false, rdstation: false })
   })
 })
