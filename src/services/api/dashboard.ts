@@ -4,6 +4,7 @@
 import { supabase } from '../supabase'
 import type { VwResumoMensal, VwClientesMes, VwUfMensal } from '../../types/database'
 import type { ConnectionStatus, DadosMes } from '../../types/api'
+import { throwApiError } from './errors'
 
 /** Fetch all rows from vw_resumo_mensal, ordered by month descending. */
 export async function fetchResumoMensal(): Promise<VwResumoMensal[]> {
@@ -13,7 +14,7 @@ export async function fetchResumoMensal(): Promise<VwResumoMensal[]> {
     .order('mes', { ascending: false })
 
   if (error) {
-    throw new Error(`Erro ao carregar resumo mensal: ${error.message}`)
+    throwApiError('fetchResumoMensal', error)
   }
 
   return data ?? []
@@ -27,10 +28,10 @@ export async function fetchDadosMes(mes: string): Promise<DadosMes> {
   ])
 
   if (clientesRes.error) {
-    throw new Error(`Erro ao carregar clientes do mês: ${clientesRes.error.message}`)
+    throwApiError('fetchDadosMes.clientes', clientesRes.error)
   }
   if (ufRes.error) {
-    throw new Error(`Erro ao carregar UFs do mês: ${ufRes.error.message}`)
+    throwApiError('fetchDadosMes.ufs', ufRes.error)
   }
 
   return {

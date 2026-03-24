@@ -1,16 +1,41 @@
 import { supabase } from '../supabase'
 import type { AccessLog, AccessLogFilters, AccessLogStats } from '../../types/userManagement'
+import { throwApiError } from './errors'
 
-export async function logEvent(eventType: string, pageKey?: string) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+/** Shape returned by Supabase join: access_logs + user_profiles. */
+interface AccessLogWithProfile {
+  id: string
+  user_id: string
+  event_type: string
+  page_key: string | null
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+  user_profiles: { email: string; nome: string | null } | null
+}
 
-  await supabase.from('access_logs').insert({
-    user_id: user.id,
-    event_type: eventType,
-    page_key: pageKey ?? null,
-    user_agent: navigator.userAgent,
-  })
+/**
+ * Log an access event (login, logout, page_view).
+ * This is the single entry point for all access_logs insertions.
+ */
+export async function logEvent(eventType: string, pageKey?: string, userId?: string) {
+  try {
+    const uid = userId ?? (await supabase.auth.getUser()).data.user?.id
+    if (!uid) return
+
+    const { error } = await supabase.from('access_logs').insert({
+      user_id: uid,
+      event_type: eventType,
+      page_key: pageKey ?? null,
+      user_agent: navigator.userAgent,
+    })
+
+    if (error) {
+      console.error(`[logEvent] Failed to insert access log:`, error.message)
+    }
+  } catch (err) {
+    console.error(`[logEvent] Unexpected error:`, err)
+  }
 }
 
 export async function fetchLogs(filters: AccessLogFilters) {
@@ -29,15 +54,18 @@ export async function fetchLogs(filters: AccessLogFilters) {
   if (filters.to_date) query = query.lte('created_at', filters.to_date)
 
   const { data, error, count } = await query
-  if (error) throw error
+  if (error) throwApiError('fetchLogs', error)
 
   return {
-    logs: (data ?? []).map((d) => ({
-      ...d,
-      user_email: (d as any).user_profiles?.email,
-      user_nome: (d as any).user_profiles?.nome,
-      user_profiles: undefined,
-    })) as AccessLog[],
+    logs: (data ?? []).map((d) => {
+      const row = d as unknown as AccessLogWithProfile
+      return {
+        ...d,
+        user_email: row.user_profiles?.email,
+        user_nome: row.user_profiles?.nome,
+        user_profiles: undefined,
+      }
+    }) as AccessLog[],
     total: count ?? 0,
   }
 }

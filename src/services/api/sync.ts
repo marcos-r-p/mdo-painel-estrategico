@@ -2,6 +2,7 @@
 
 import { supabase, supabaseUrl } from '../supabase'
 import type { SyncResponse } from '../../types/api'
+import { throwApiError } from './errors'
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -20,10 +21,10 @@ export async function getAccessToken(): Promise<string> {
   const { data: { session }, error } = await supabase.auth.getSession()
 
   if (error) {
-    throw new Error(`Erro ao obter sessão: ${error.message}`)
+    throwApiError('getAccessToken', error)
   }
   if (!session?.access_token) {
-    throw new Error('Usuário não autenticado')
+    throwApiError('getAccessToken', new Error('Usuário não autenticado'))
   }
 
   return session.access_token
@@ -63,13 +64,13 @@ export async function syncPlatformStep(
     clearTimeout(timeout)
 
     if (!res.ok) {
-      throw new Error(`Sync ${platform}/${tipo} falhou: HTTP ${res.status}`)
+      throwApiError(`syncPlatformStep.${platform}.${tipo}`, new Error(`HTTP ${res.status}`))
     }
 
     const data: SyncResponse = await res.json()
 
     if (data.error) {
-      throw new Error(data.error)
+      throwApiError(`syncPlatformStep.${platform}.${tipo}`, new Error(data.error))
     }
 
     return data
@@ -77,7 +78,7 @@ export async function syncPlatformStep(
     clearTimeout(timeout)
 
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`Sync ${platform}/${tipo} timeout (${SYNC_TIMEOUT_MS / 1000}s)`)
+      throwApiError(`syncPlatformStep.${platform}.${tipo}`, new Error(`timeout (${SYNC_TIMEOUT_MS / 1000}s)`))
     }
 
     throw err
@@ -87,7 +88,10 @@ export async function syncPlatformStep(
 // ── OAuth URLs ───────────────────────────────────────────────
 
 export function getBlingOAuthURL(): string {
-  const clientId = import.meta.env.VITE_BLING_CLIENT_ID ?? '567bba7562d27003649ad247d8bd0baad95d3435'
+  const clientId = import.meta.env.VITE_BLING_CLIENT_ID
+  if (!clientId) {
+    throw new Error('VITE_BLING_CLIENT_ID não configurado. Defina a variável de ambiente.')
+  }
   return `https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=${clientId}&state=mdo`
 }
 

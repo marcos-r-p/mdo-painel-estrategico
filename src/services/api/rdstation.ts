@@ -9,6 +9,7 @@ import type {
   RDStationTask,
 } from '../../types/database'
 import type { CRMData, FunilEtapa } from '../../types/domain'
+import { throwApiError } from './errors'
 
 // ── Individual table fetchers ────────────────────────────────
 
@@ -29,7 +30,7 @@ export async function fetchRDStationDeals(): Promise<RDStationDeal[]> {
     .limit(5000)
 
   if (error) {
-    throw new Error(`Erro ao carregar deals RD Station: ${error.message}`)
+    throwApiError('fetchRDStationDeals', error)
   }
 
   return (data ?? []) as RDStationDeal[]
@@ -43,7 +44,7 @@ export async function fetchRDStationContacts(): Promise<RDStationContact[]> {
     .limit(5000)
 
   if (error) {
-    throw new Error(`Erro ao carregar contatos RD Station: ${error.message}`)
+    throwApiError('fetchRDStationContacts', error)
   }
 
   return (data ?? []) as RDStationContact[]
@@ -58,7 +59,7 @@ export async function fetchRDStationStages(): Promise<RDStationStage[]> {
     .limit(500)
 
   if (error) {
-    throw new Error(`Erro ao carregar stages RD Station: ${error.message}`)
+    throwApiError('fetchRDStationStages', error)
   }
 
   return (data ?? []) as RDStationStage[]
@@ -72,7 +73,7 @@ export async function fetchRDStationTasks(): Promise<RDStationTask[]> {
     .limit(5000)
 
   if (error) {
-    throw new Error(`Erro ao carregar tasks RD Station: ${error.message}`)
+    throwApiError('fetchRDStationTasks', error)
   }
 
   return (data ?? []) as RDStationTask[]
@@ -162,13 +163,17 @@ export async function fetchCRMDashboard(
   // ── Path 2: RD Station REST API ───────────────────────────
   if (!rdToken) return null
 
+  // NOTE: RD Station CRM API v1 requires the token as a query parameter.
+  // Bearer header auth is not supported by this API version.
+  // The token will appear in server access logs — ensure HTTPS is used
+  // and avoid logging full URLs on the client side.
   const [dealsRes, stagesRes] = await Promise.all([
     fetch(`${RD_BASE}/deals?page=1&limit=200&token=${rdToken}`),
     fetch(`${RD_BASE}/deal_stages?token=${rdToken}`),
   ])
 
   if (!dealsRes.ok) {
-    throw new Error(`RD Station auth failed: ${dealsRes.status}`)
+    throwApiError('fetchCRMDashboard', new Error(`RD Station auth failed: HTTP ${dealsRes.status}`))
   }
 
   const dealsData = await dealsRes.json()
