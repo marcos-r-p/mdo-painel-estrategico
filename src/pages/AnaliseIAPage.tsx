@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { supabase } from '../services/supabase'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber, formatPercent } from '../lib/formatters'
@@ -759,6 +760,7 @@ function PlanoAcao() {
 
 /* PAGINA PRINCIPAL */
 export default function AnaliseIAPage() {
+  useDocumentTitle('Análise IA')
   const dados: DadosType = DADOS as unknown as DadosType
 
   // Load live CRM data from Supabase RPC (falls back to hardcoded)

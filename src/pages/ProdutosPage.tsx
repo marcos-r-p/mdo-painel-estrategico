@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
@@ -35,6 +36,7 @@ interface SelectedProduct {
 }
 
 export default function ProdutosPage() {
+  useDocumentTitle('Produtos')
   const [searchParams] = useSearchParams()
   const _fonteAtiva = searchParams.get('fonte')
 

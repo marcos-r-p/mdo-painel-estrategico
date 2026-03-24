@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { DADOS } from '../data/seed';
 import type { Alerta, AlertTipo, PlanoAcao } from '../types/domain';
 import SectionCard from '../components/ui/SectionCard';
@@ -130,6 +131,7 @@ interface DateRange {
 }
 
 export default function AlertasPage() {
+  useDocumentTitle('Alertas');
   const [searchParams] = useSearchParams();
   const fonteAtiva: string | null = searchParams.get('fonte');
 

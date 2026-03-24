@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { supabase } from '../services/supabase'
 import { DADOS } from '../data/seed'
 import { formatCurrency } from '../lib/formatters'
@@ -108,6 +109,7 @@ function classifySegment(r: number, f: number): Segmento {
 }
 
 export default function MatrizRFMPage() {
+  useDocumentTitle('Matriz RFM')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
 

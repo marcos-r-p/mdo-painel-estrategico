@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useUsers, useDeactivateUser, useReactivateUser, useDeleteUser } from '../../services/queries/useUserManagementQueries'
 import { useRoles } from '../../services/queries/useRolesQueries'
 import UserModal from '../../components/admin/UserModal'
@@ -70,6 +71,7 @@ function CheckCircleIcon() {
 type StatusFilter = 'todos' | 'ativo' | 'desativado'
 
 export default function UsuariosPage() {
+  useDocumentTitle('Usuários')
   const { user: currentUser } = useAuth()
 
   // Filters state
@@ -82,6 +84,7 @@ export default function UsuariosPage() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'reactivate'; user: UserProfile } | null>(null)
 
   // Data
   const { data: users = [], isLoading, error } = useUsers(includeDeleted)
@@ -130,16 +133,22 @@ export default function UsuariosPage() {
     setSelectedUser(null)
   }
 
-  async function handleDeactivate(user: UserProfile) {
-    const confirmed = window.confirm(`Desativar o usuário "${user.nome ?? user.email}"?`)
-    if (!confirmed) return
-    await deactivateMutation.mutateAsync(user.id)
+  function handleDeactivate(user: UserProfile) {
+    setConfirmAction({ type: 'deactivate', user })
   }
 
-  async function handleReactivate(user: UserProfile) {
-    const confirmed = window.confirm(`Reativar o usuário "${user.nome ?? user.email}"?`)
-    if (!confirmed) return
-    await reactivateMutation.mutateAsync(user.id)
+  function handleReactivate(user: UserProfile) {
+    setConfirmAction({ type: 'reactivate', user })
+  }
+
+  async function executeConfirmAction() {
+    if (!confirmAction) return
+    if (confirmAction.type === 'deactivate') {
+      await deactivateMutation.mutateAsync(confirmAction.user.id)
+    } else {
+      await reactivateMutation.mutateAsync(confirmAction.user.id)
+    }
+    setConfirmAction(null)
   }
 
   function handleDeleteClick(user: UserProfile) {
@@ -380,6 +389,40 @@ export default function UsuariosPage() {
           userEmail={deleteTarget.email}
           isPending={deleteMutation.isPending}
         />
+      )}
+
+      {/* Confirm Deactivate/Reactivate */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              {confirmAction.type === 'deactivate' ? 'Desativar usuário' : 'Reativar usuário'}
+            </h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              {confirmAction.type === 'deactivate'
+                ? `Desativar o usuário "${confirmAction.user.nome ?? confirmAction.user.email}"?`
+                : `Reativar o usuário "${confirmAction.user.nome ?? confirmAction.user.email}"?`}
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executeConfirmAction}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
+                  confirmAction.type === 'deactivate'
+                    ? 'bg-orange-600 hover:bg-orange-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {confirmAction.type === 'deactivate' ? 'Desativar' : 'Reativar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

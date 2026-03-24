@@ -1,15 +1,18 @@
 import { useState } from 'react'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useRoles, useDeleteRole } from '../../services/queries/useRolesQueries'
 import RoleModal from '../../components/admin/RoleModal'
 import { NAVIGATION_SECTIONS } from '../../lib/constants'
 import type { RoleWithPermissions } from '../../types/userManagement'
 
 export default function RolesPage() {
+  useDocumentTitle('Roles')
   const { data: roles = [], isLoading } = useRoles()
   const deleteRole = useDeleteRole()
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<RoleWithPermissions | null>(null)
+  const [confirmAction, setConfirmAction] = useState<{ type: 'delete'; item: RoleWithPermissions } | null>(null)
 
   const openCreate = () => {
     setEditingRole(null)
@@ -23,9 +26,13 @@ export default function RolesPage() {
 
   const handleDelete = (role: RoleWithPermissions) => {
     if (role.user_count > 0) return
-    const confirmed = window.confirm(`Tem certeza que deseja excluir o role "${role.nome}"? Esta ação não pode ser desfeita.`)
-    if (!confirmed) return
-    deleteRole.mutate(role.id)
+    setConfirmAction({ type: 'delete', item: role })
+  }
+
+  const executeConfirmAction = () => {
+    if (!confirmAction) return
+    deleteRole.mutate(confirmAction.item.id)
+    setConfirmAction(null)
   }
 
   const adminRole = roles.find((r) => r.nome === 'admin')
@@ -99,6 +106,34 @@ export default function RolesPage() {
         onClose={() => setModalOpen(false)}
         role={editingRole}
       />
+
+      {/* Confirm Delete */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Excluir role
+            </h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Tem certeza que deseja excluir o role &quot;{confirmAction.item.nome}&quot;? Esta ação não pode ser desfeita.
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executeConfirmAction}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
