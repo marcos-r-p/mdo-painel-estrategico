@@ -68,10 +68,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Conta desativada. Entre em contato com o administrador.')
     }
 
+    // Fire and forget login log
+    supabase.from('access_logs').insert({
+      user_id: data.user.id,
+      event_type: 'login',
+      user_agent: navigator.userAgent,
+    }).then(() => {})
+
     return data
   }
 
   const logout = async () => {
+    if (user) {
+      supabase.from('access_logs').insert({
+        user_id: user.id,
+        event_type: 'logout',
+        user_agent: navigator.userAgent,
+      }).then(() => {})
+    }
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     setUser(null)
