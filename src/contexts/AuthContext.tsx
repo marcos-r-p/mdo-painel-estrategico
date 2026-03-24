@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadProfile])
 
-  const clearPasswordRecovery = () => setIsPasswordRecovery(false)
+  const clearPasswordRecovery = useCallback(() => setIsPasswordRecovery(false), [])
 
   const isAdmin = userProfile?.role === 'admin'
   const isAuthenticated = !!user

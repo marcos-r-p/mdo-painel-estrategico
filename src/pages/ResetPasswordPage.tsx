@@ -26,11 +26,6 @@ export default function ResetPasswordPage() {
       }
     }, 3000);
 
-    // If already resolved quickly, check immediately
-    if (!authLoading && !isPasswordRecovery && !user) {
-      // Wait the full 3s before declaring expired
-    }
-
     return () => clearTimeout(timer);
   }, [authLoading, isPasswordRecovery, user]);
 
@@ -52,6 +47,8 @@ export default function ResetPasswordPage() {
 
     try {
       await updateUserPassword(password);
+      setPassword('');
+      setConfirmPassword('');
       clearPasswordRecovery();
       setSuccess(true);
 
@@ -126,8 +123,15 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
+          {/* Loading while waiting for recovery session */}
+          {!expired && !success && !isPasswordRecovery && (
+            <div className="flex justify-center py-8">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-200 border-t-green-600" />
+            </div>
+          )}
+
           {/* Reset password form */}
-          {!expired && !success && (
+          {!expired && !success && isPasswordRecovery && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <h2 className="text-center text-lg font-semibold text-gray-800 dark:text-gray-100">
                 Redefinir senha
