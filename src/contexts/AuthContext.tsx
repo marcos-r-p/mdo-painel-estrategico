@@ -50,20 +50,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const login = async (email: string, password: string) => {
+    console.log('[Auth] Iniciando login...')
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
+    console.log('[Auth] signInWithPassword retornou:', { error: error?.message, user: data?.user?.email })
     if (error) throw error
 
     // Profile loading and deactivation check happen in onAuthStateChange
-    // Fire and forget login log
-    supabase.from('access_logs').insert({
-      user_id: data.user.id,
-      event_type: 'login',
-      user_agent: navigator.userAgent,
-    }).then(() => {})
+    // Log access asynchronously - don't block login
+    setTimeout(() => {
+      supabase.from('access_logs').insert({
+        user_id: data.user.id,
+        event_type: 'login',
+        user_agent: navigator.userAgent,
+      }).then(() => console.log('[Auth] Login log registrado'))
+        .catch((err: unknown) => console.error('[Auth] Erro ao registrar log:', err))
+    }, 1000)
 
+    console.log('[Auth] Login concluído, retornando data')
     return data
   }
 
