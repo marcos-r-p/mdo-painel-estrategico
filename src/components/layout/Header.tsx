@@ -352,7 +352,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
               {isAdmin && (
                 <button
                   onClick={() => {
-                    navigate('/app/usuarios')
+                    navigate('/app/admin/usuarios')
                     setUserMenuOpen(false)
                   }}
                   className={`

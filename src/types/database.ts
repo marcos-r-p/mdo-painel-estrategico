@@ -165,8 +165,10 @@ export interface UserProfile {
   id: string;
   email: string;
   nome: string | null;
-  role: 'admin' | 'viewer' | 'editor';
-  avatar_url: string | null;
+  role_id: string;
+  role_nome: string;
+  ativo: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }

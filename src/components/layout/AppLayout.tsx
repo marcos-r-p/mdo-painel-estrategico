@@ -3,9 +3,11 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import Spinner from '../ui/Spinner'
+import { usePageTracking } from '../../hooks/usePageTracking'
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  usePageTracking()
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

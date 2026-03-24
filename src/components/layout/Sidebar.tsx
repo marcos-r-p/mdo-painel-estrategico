@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
 import { NAVIGATION_SECTIONS } from '../../lib/constants'
+import { usePermissions } from '../../hooks/usePermissions'
+import { useAuth } from '../../hooks/useAuth'
+import { ADMIN_NAVIGATION } from '../../lib/constants'
 
 interface SidebarProps {
   isOpen: boolean
@@ -10,6 +13,8 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const { darkMode } = useTheme()
+  const { hasAccess } = usePermissions()
+  const { isAdmin } = useAuth()
   const [hovered, setHovered] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
 
@@ -84,7 +89,10 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-          {NAVIGATION_SECTIONS.map((section) => (
+          {NAVIGATION_SECTIONS.filter((section) => {
+            const pageKey = section.path.replace('/app/', '')
+            return hasAccess(pageKey)
+          }).map((section) => (
             <NavLink
               key={section.id}
               to={section.path}
@@ -142,6 +150,53 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               )}
             </NavLink>
           ))}
+          {isAdmin && (
+            <>
+              <div className={`mx-1 my-2 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`} />
+              <div className={`px-3 py-1 ${expanded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}>
+                <span className={`text-[10px] uppercase tracking-wider font-semibold ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Administração
+                </span>
+              </div>
+              {ADMIN_NAVIGATION.map((section) => (
+                <NavLink
+                  key={section.id}
+                  to={section.path}
+                  onClick={() => setIsOpen(false)}
+                  title={section.label}
+                  className={({ isActive }) => `
+                    w-full flex items-center rounded-lg px-3 py-2.5
+                    transition-colors duration-150 group relative
+                    ${isActive
+                      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-medium'
+                      : darkMode
+                        ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }
+                  `}
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-purple-500" />
+                      )}
+                      <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                        {section.icon}
+                      </span>
+                      <span className={`ml-3 text-sm whitespace-nowrap overflow-hidden transition-all duration-200 ${expanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 lg:opacity-0 lg:w-0'}`}>
+                        {section.label}
+                      </span>
+                      {!expanded && (
+                        <span className={`absolute left-full ml-3 px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 hidden lg:block ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-800 text-white'} shadow-lg z-50`}>
+                          {section.label}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* Bottom section */}
