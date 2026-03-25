@@ -25,37 +25,39 @@ Ambas as páginas (CRMPage e FunilPage) usam dados hardcoded/seed. Não há aná
 
 ### CRM (RD Station) — 6 views
 
+**Esquema real da tabela `rdstation_deals`:** `id`, `rdstation_id`, `name`, `amount`, `stage_id`, `stage_name`, `win` (boolean), `closed` (boolean), `user_name`, `deal_source`, `contact_name`, `contact_email`, `loss_reason`, `created_at`, `closed_at`, `synced_at`.
+
 #### 1. `mv_crm_funil_periodo`
-Quantidade, valor, perdas e vendas por etapa do funil, agrupado por mês.
+Quantidade, valor, perdas e vendas por etapa do funil, agrupado por mes.
 
 ```sql
 CREATE MATERIALIZED VIEW mv_crm_funil_periodo AS
 SELECT
   date_trunc('month', d.created_at)::date AS mes,
-  d.deal_stage AS etapa,
+  d.stage_name AS etapa,
   COUNT(*) AS qtd,
   SUM(d.amount) AS valor_total,
-  COUNT(*) FILTER (WHERE d.deal_status = 'won') AS vendas,
-  COUNT(*) FILTER (WHERE d.deal_status = 'lost') AS perdas,
-  SUM(d.amount) FILTER (WHERE d.deal_status = 'won') AS valor_vendas
+  COUNT(*) FILTER (WHERE d.win = true) AS vendas,
+  COUNT(*) FILTER (WHERE d.closed = true AND d.win = false) AS perdas,
+  SUM(d.amount) FILTER (WHERE d.win = true) AS valor_vendas
 FROM rdstation_deals d
 GROUP BY 1, 2
 ORDER BY 1 DESC, 2;
 ```
 
 #### 2. `mv_crm_evolucao_mensal`
-Deals criados, vendidos e perdidos com valores por mês.
+Deals criados, vendidos e perdidos com valores por mes.
 
 ```sql
 CREATE MATERIALIZED VIEW mv_crm_evolucao_mensal AS
 SELECT
   date_trunc('month', d.created_at)::date AS mes,
   COUNT(*) AS criados,
-  COUNT(*) FILTER (WHERE d.deal_status = 'won') AS vendidos,
-  COUNT(*) FILTER (WHERE d.deal_status = 'lost') AS perdidos,
+  COUNT(*) FILTER (WHERE d.win = true) AS vendidos,
+  COUNT(*) FILTER (WHERE d.closed = true AND d.win = false) AS perdidos,
   SUM(d.amount) AS valor_criado,
-  SUM(d.amount) FILTER (WHERE d.deal_status = 'won') AS valor_vendido,
-  SUM(d.amount) FILTER (WHERE d.deal_status = 'lost') AS valor_perdido
+  SUM(d.amount) FILTER (WHERE d.win = true) AS valor_vendido,
+  SUM(d.amount) FILTER (WHERE d.closed = true AND d.win = false) AS valor_perdido
 FROM rdstation_deals d
 GROUP BY 1
 ORDER BY 1 DESC;
@@ -72,7 +74,7 @@ SELECT
   SUM(d.amount) AS valor_total,
   ROUND(100.0 * COUNT(*) / NULLIF(SUM(COUNT(*)) OVER(), 0), 1) AS percentual
 FROM rdstation_deals d
-WHERE d.deal_status = 'lost'
+WHERE d.closed = true AND d.win = false
 GROUP BY 1
 ORDER BY qtd DESC;
 ```
@@ -85,11 +87,11 @@ CREATE MATERIALIZED VIEW mv_crm_responsaveis AS
 SELECT
   COALESCE(d.user_name, 'Sem responsavel') AS responsavel,
   COUNT(*) AS total_deals,
-  COUNT(*) FILTER (WHERE d.deal_status = 'won') AS vendas,
-  COUNT(*) FILTER (WHERE d.deal_status = 'lost') AS perdas,
-  ROUND(100.0 * COUNT(*) FILTER (WHERE d.deal_status = 'won') / NULLIF(COUNT(*), 0), 1) AS taxa_conversao,
-  COALESCE(AVG(d.amount) FILTER (WHERE d.deal_status = 'won'), 0) AS ticket_medio,
-  COALESCE(SUM(d.amount) FILTER (WHERE d.deal_status = 'won'), 0) AS valor_total_vendas
+  COUNT(*) FILTER (WHERE d.win = true) AS vendas,
+  COUNT(*) FILTER (WHERE d.closed = true AND d.win = false) AS perdas,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE d.win = true) / NULLIF(COUNT(*), 0), 1) AS taxa_conversao,
+  COALESCE(AVG(d.amount) FILTER (WHERE d.win = true), 0) AS ticket_medio,
+  COALESCE(SUM(d.amount) FILTER (WHERE d.win = true), 0) AS valor_total_vendas
 FROM rdstation_deals d
 GROUP BY 1
 ORDER BY valor_total_vendas DESC;
@@ -103,34 +105,38 @@ CREATE MATERIALIZED VIEW mv_crm_origens AS
 SELECT
   COALESCE(d.deal_source, 'Direto') AS origem,
   COUNT(*) AS total,
-  COUNT(*) FILTER (WHERE d.deal_status = 'won') AS convertidos,
-  ROUND(100.0 * COUNT(*) FILTER (WHERE d.deal_status = 'won') / NULLIF(COUNT(*), 0), 1) AS taxa_conversao,
-  COALESCE(SUM(d.amount) FILTER (WHERE d.deal_status = 'won'), 0) AS valor_convertido
+  COUNT(*) FILTER (WHERE d.win = true) AS convertidos,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE d.win = true) / NULLIF(COUNT(*), 0), 1) AS taxa_conversao,
+  COALESCE(SUM(d.amount) FILTER (WHERE d.win = true), 0) AS valor_convertido
 FROM rdstation_deals d
 GROUP BY 1
 ORDER BY total DESC;
 ```
 
 #### 6. `mv_crm_deals_parados`
-Deals abertos ha mais de X dias por etapa.
+Deals abertos ha mais de X dias por etapa. Nota: tabela nao possui `updated_at`, usa `synced_at` como proxy.
 
 ```sql
 CREATE MATERIALIZED VIEW mv_crm_deals_parados AS
 SELECT
   d.id,
   d.name AS deal_nome,
-  d.deal_stage AS etapa,
+  d.stage_name AS etapa,
   d.amount AS valor,
   d.user_name AS responsavel,
   d.created_at,
-  d.updated_at,
-  EXTRACT(DAY FROM now() - COALESCE(d.updated_at, d.created_at))::int AS dias_parado
+  d.synced_at,
+  EXTRACT(DAY FROM now() - COALESCE(d.synced_at, d.created_at))::int AS dias_parado
 FROM rdstation_deals d
-WHERE d.deal_status NOT IN ('won', 'lost')
+WHERE d.closed = false
 ORDER BY dias_parado DESC;
 ```
 
 ### Shopify Funnel — 4 views
+
+**Esquema real da tabela `shopify_pedidos`:** `id`, `numero`, `data` (timestamptz), `cliente_email`, `cliente_nome`, `valor_total`, `subtotal`, `desconto`, `frete`, `impostos`, `status_financeiro`, `status_fulfillment`, `canal`, `gateway_pagamento`, `uf`, `cidade`, `pais`, `itens` (jsonb), `tags`, `nota`, `created_at`.
+
+**Nota:** `shopify_line_items` nao existe como tabela separada. Os itens estao na coluna JSONB `itens` de `shopify_pedidos`. Formato: `[{"titulo": "...", "sku": "...", "quantidade": N, "preco": N}, ...]`.
 
 #### 7. `mv_shopify_vendas_mensal`
 Pedidos, receita e ticket medio por mes.
@@ -138,13 +144,13 @@ Pedidos, receita e ticket medio por mes.
 ```sql
 CREATE MATERIALIZED VIEW mv_shopify_vendas_mensal AS
 SELECT
-  date_trunc('month', p.created_at)::date AS mes,
+  date_trunc('month', p.data)::date AS mes,
   COUNT(*) AS pedidos,
-  SUM(p.total_price) AS receita,
-  AVG(p.total_price) AS ticket_medio,
-  SUM(p.total_discounts) AS descontos_total
+  SUM(p.valor_total) AS receita,
+  AVG(p.valor_total) AS ticket_medio,
+  SUM(p.desconto) AS descontos_total
 FROM shopify_pedidos p
-WHERE p.financial_status IN ('paid', 'partially_refunded')
+WHERE p.status_financeiro IN ('paid', 'partially_refunded')
 GROUP BY 1
 ORDER BY 1 DESC;
 ```
@@ -156,41 +162,41 @@ Clientes novos vs recorrentes e taxa de recompra.
 CREATE MATERIALIZED VIEW mv_shopify_recorrencia AS
 WITH cliente_compras AS (
   SELECT
-    customer_email,
+    cliente_email,
     COUNT(*) AS total_compras,
-    MIN(created_at) AS primeira_compra
+    MIN(data) AS primeira_compra
   FROM shopify_pedidos
-  WHERE financial_status IN ('paid', 'partially_refunded')
-    AND customer_email IS NOT NULL
-  GROUP BY customer_email
+  WHERE status_financeiro IN ('paid', 'partially_refunded')
+    AND cliente_email IS NOT NULL
+  GROUP BY cliente_email
 )
 SELECT
-  date_trunc('month', p.created_at)::date AS mes,
+  date_trunc('month', p.data)::date AS mes,
   COUNT(*) FILTER (WHERE cc.total_compras = 1) AS clientes_novos,
   COUNT(*) FILTER (WHERE cc.total_compras > 1) AS clientes_recorrentes,
   ROUND(100.0 * COUNT(*) FILTER (WHERE cc.total_compras > 1) / NULLIF(COUNT(*), 0), 1) AS taxa_recompra
 FROM shopify_pedidos p
-JOIN cliente_compras cc ON p.customer_email = cc.customer_email
-WHERE p.financial_status IN ('paid', 'partially_refunded')
+JOIN cliente_compras cc ON p.cliente_email = cc.cliente_email
+WHERE p.status_financeiro IN ('paid', 'partially_refunded')
 GROUP BY 1
 ORDER BY 1 DESC;
 ```
 
 #### 9. `mv_shopify_produtos_rank`
-Top produtos por receita e quantidade vendida.
+Top produtos por receita e quantidade vendida. Extrai de JSONB `itens`.
 
 ```sql
 CREATE MATERIALIZED VIEW mv_shopify_produtos_rank AS
 SELECT
-  li.title AS produto,
-  li.sku,
-  SUM(li.quantity) AS qtd_vendida,
-  SUM(li.quantity * li.price) AS receita_total,
-  AVG(li.price) AS preco_medio,
+  item->>'titulo' AS produto,
+  COALESCE(item->>'sku', '') AS sku,
+  SUM((item->>'quantidade')::int) AS qtd_vendida,
+  SUM((item->>'quantidade')::int * (item->>'preco')::numeric) AS receita_total,
+  AVG((item->>'preco')::numeric) AS preco_medio,
   COUNT(DISTINCT p.id) AS pedidos_distintos
-FROM shopify_line_items li
-JOIN shopify_pedidos p ON li.order_id = p.id
-WHERE p.financial_status IN ('paid', 'partially_refunded')
+FROM shopify_pedidos p,
+     jsonb_array_elements(p.itens) AS item
+WHERE p.status_financeiro IN ('paid', 'partially_refunded')
 GROUP BY 1, 2
 ORDER BY receita_total DESC;
 ```
@@ -202,21 +208,21 @@ Cohort mensal: primeira compra vs recompras.
 CREATE MATERIALIZED VIEW mv_shopify_cohort AS
 WITH primeira AS (
   SELECT
-    customer_email,
-    date_trunc('month', MIN(created_at))::date AS cohort_mes
+    cliente_email,
+    date_trunc('month', MIN(data))::date AS cohort_mes
   FROM shopify_pedidos
-  WHERE financial_status IN ('paid', 'partially_refunded')
-    AND customer_email IS NOT NULL
-  GROUP BY customer_email
+  WHERE status_financeiro IN ('paid', 'partially_refunded')
+    AND cliente_email IS NOT NULL
+  GROUP BY cliente_email
 )
 SELECT
   pr.cohort_mes,
-  date_trunc('month', p.created_at)::date AS mes_compra,
-  COUNT(DISTINCT p.customer_email) AS clientes,
-  SUM(p.total_price) AS receita
+  date_trunc('month', p.data)::date AS mes_compra,
+  COUNT(DISTINCT p.cliente_email) AS clientes,
+  SUM(p.valor_total) AS receita
 FROM shopify_pedidos p
-JOIN primeira pr ON p.customer_email = pr.customer_email
-WHERE p.financial_status IN ('paid', 'partially_refunded')
+JOIN primeira pr ON p.cliente_email = pr.cliente_email
+WHERE p.status_financeiro IN ('paid', 'partially_refunded')
 GROUP BY 1, 2
 ORDER BY 1, 2;
 ```
@@ -234,7 +240,7 @@ CREATE UNIQUE INDEX ON mv_crm_origens (origem);
 CREATE UNIQUE INDEX ON mv_crm_deals_parados (id);
 CREATE UNIQUE INDEX ON mv_shopify_vendas_mensal (mes);
 CREATE UNIQUE INDEX ON mv_shopify_recorrencia (mes);
-CREATE UNIQUE INDEX ON mv_shopify_produtos_rank (produto, sku);
+CREATE UNIQUE INDEX ON mv_shopify_produtos_rank (produto, COALESCE(sku, ''));
 CREATE UNIQUE INDEX ON mv_shopify_cohort (cohort_mes, mes_compra);
 ```
 
@@ -329,10 +335,10 @@ Configuracao: `staleTime: 5min`, `gcTime: 30min`. Dados mudam apenas no refresh 
 
 ### Refresh das Views
 
-Refresh disparado pelo Edge Function existente (`bling-sync`). Expandimos a funcao para incluir todas as views:
+Substituimos a funcao existente `refresh_financial_views()` (usada pelo `bling-sync` Edge Function) para incluir todas as views:
 
 ```sql
-CREATE OR REPLACE FUNCTION refresh_all_views()
+CREATE OR REPLACE FUNCTION refresh_financial_views()
 RETURNS void AS $$
 BEGIN
   -- Financial (existentes)
@@ -358,6 +364,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
+**Nota:** Mantemos o nome `refresh_financial_views()` para nao quebrar o Edge Function `bling-sync` que ja chama esta funcao. A funcao passa a incluir CRM e Shopify views tambem.
+
 **Frequencia:** Vercel Cron existente (6h). Mesmo schedule para CRM/Shopify.
 
 **Manual:** Botao "Atualizar dados" no header de cada pagina chama a Edge Function.
@@ -365,9 +373,23 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 ### Seguranca
 
 - Materialized views sao read-only
-- Acesso via `GRANT SELECT` para role `authenticated`
 - Tabelas-fonte manteem suas politicas RLS existentes
 - Frontend usa Supabase client com chave `anon`
+
+**GRANT SELECT explicito para as 10 novas views:**
+
+```sql
+GRANT SELECT ON mv_crm_funil_periodo TO authenticated;
+GRANT SELECT ON mv_crm_evolucao_mensal TO authenticated;
+GRANT SELECT ON mv_crm_perdas TO authenticated;
+GRANT SELECT ON mv_crm_responsaveis TO authenticated;
+GRANT SELECT ON mv_crm_origens TO authenticated;
+GRANT SELECT ON mv_crm_deals_parados TO authenticated;
+GRANT SELECT ON mv_shopify_vendas_mensal TO authenticated;
+GRANT SELECT ON mv_shopify_recorrencia TO authenticated;
+GRANT SELECT ON mv_shopify_produtos_rank TO authenticated;
+GRANT SELECT ON mv_shopify_cohort TO authenticated;
+```
 
 ### Fallback para Dados Vazios
 
