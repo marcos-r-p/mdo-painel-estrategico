@@ -1,11 +1,13 @@
-export default async function handler(req: Request) {
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const authHeader = req.headers.get('authorization')
+  const authHeader = req.headers.authorization
   if (!authHeader?.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+    return res.status(401).json({ error: 'Unauthorized' })
   }
 
   try {
@@ -13,7 +15,7 @@ export default async function handler(req: Request) {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: 'Missing Supabase config' }), { status: 500 })
+      return res.status(500).json({ error: 'Missing Supabase config' })
     }
 
     const response = await fetch(`${supabaseUrl}/functions/v1/bling-sync?tipo=financeiro`, {
@@ -25,8 +27,8 @@ export default async function handler(req: Request) {
     })
 
     const data = await response.json()
-    return new Response(JSON.stringify(data), { status: response.ok ? 200 : 500 })
+    return res.status(response.ok ? 200 : 500).json(data)
   } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 })
+    return res.status(500).json({ error: String(error) })
   }
 }
