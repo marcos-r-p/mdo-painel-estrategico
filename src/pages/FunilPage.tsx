@@ -1,105 +1,412 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
+import {
+  AreaChart, Area, BarChart, Bar, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { supabase } from '../services/supabase'
-import { formatCurrency, formatNumber } from '../lib/formatters'
-import SectionCard from '../components/ui/SectionCard'
 import Spinner from '../components/ui/Spinner'
+import {
+  useShopifyVendasMensal, useShopifyRecorrencia,
+  useShopifyProdutosRank, useShopifyCohort,
+} from '../services/queries/useShopifyQueries'
+import { generateShopifyInsights } from '../lib/insights/shopify-insights'
+import { processInsights } from '../lib/insights/engine'
+import { formatCurrency, formatPercent, formatNumber, formatMesLabel } from '../lib/formatters'
+import type { Insight, Severity } from '../lib/insights/types'
+import type { ShopifyVendasMensal as VendasMensalRow } from '../types/shopify-views'
+import type { ShopifyRecorrencia as RecorrenciaRow } from '../types/shopify-views'
+import type { ShopifyProdutoRank } from '../types/shopify-views'
+import type { ShopifyCohort } from '../types/shopify-views'
 
-// ─── Types ───
-interface PedidoRow {
-  valor_total: number | string | null
-  status_financeiro: string | null
+// ─── Recharts dark theme constants ────────────────────────────
+const GRID_STROKE = '#374151'
+const AXIS_TICK = '#9ca3af'
+const TOOLTIP_STYLE = { backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }
+const GREEN = '#10b981'
+const BLUE = '#3b82f6'
+const EMERALD = '#10b981'
+
+// ─── Severity color map ──────────────────────────────────────
+const SEVERITY_COLORS: Record<Severity, string> = {
+  critico: 'bg-red-500/10 border-red-500/30 text-red-400',
+  atencao: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
+  info: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
 }
 
-interface FunnelStage {
-  label: string
-  value: number
-  pct: number
+const SEVERITY_OPORTUNIDADE = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+
+// ─── Card wrapper ────────────────────────────────────────────
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+        {title}
+      </h3>
+      {children}
+    </div>
+  )
 }
 
-interface Conversion {
-  from: string
-  to: string
-  rate: number
-  lost: number
+// ─── Empty state ─────────────────────────────────────────────
+function EstadoVazio({ mensagem, cta }: { mensagem: string; cta?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+      <svg className="h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+      </svg>
+      <p className="text-sm">{mensagem}</p>
+      {cta && <p className="text-xs mt-2 text-gray-500">{cta}</p>}
+    </div>
+  )
 }
 
-export default function FunilPage() {
-  useDocumentTitle('Funil')
-  const [pedidos, setPedidos] = useState<PedidoRow[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
+// ─── Section 1: Insights ─────────────────────────────────────
+function SecaoInsights({ insights }: { insights: Insight[] }) {
+  if (insights.length === 0) return null
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data } = await supabase
-          .from('shopify_pedidos')
-          .select('valor_total, status_financeiro')
-        if (data) setPedidos(data as PedidoRow[])
-      } catch (err) {
-        console.error('FunilPage fetch error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [])
+  return (
+    <Card title="Insights">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {insights.map((ins) => {
+          const colorClass = ins.type === 'oportunidade'
+            ? SEVERITY_OPORTUNIDADE
+            : SEVERITY_COLORS[ins.severity] ?? SEVERITY_COLORS.info
 
-  const { totalPedidos: _totalPedidos, receita, pedidosPagos } = useMemo(() => {
-    const total = pedidos.length
-    const pagos = pedidos.filter(
-      (p) => (p.status_financeiro || '').toLowerCase() === 'paid'
+          return (
+            <div key={ins.id} className={`rounded-lg border p-4 ${colorClass}`}>
+              <p className="text-sm font-semibold">{ins.titulo}</p>
+              <p className="mt-1 text-xs opacity-80">{ins.descricao}</p>
+              {ins.recomendacao && (
+                <p className="mt-2 text-xs italic opacity-70">{ins.recomendacao}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+// ─── Section 2: Vendas (AreaChart) ───────────────────────────
+function SecaoVendas({ data }: { data: VendasMensalRow[] }) {
+  const sorted = useMemo(
+    () => [...data].sort((a, b) => a.mes.localeCompare(b.mes)),
+    [data],
+  )
+
+  if (sorted.length === 0) {
+    return (
+      <Card title="Vendas Mensais">
+        <EstadoVazio mensagem="Sem dados de vendas mensais." />
+      </Card>
     )
-    const rec = pagos.reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
-    return { totalPedidos: total, receita: rec, pedidosPagos: pagos.length }
-  }, [pedidos])
+  }
 
-  const funnel = useMemo<FunnelStage[]>(() => {
-    const sessoes = 24973
-    const vizProduto = Math.round(sessoes * 0.38)
-    const addCart = Math.round(sessoes * 0.12)
-    const iniCheckout = Math.round(sessoes * 0.045)
-    const comprou = pedidosPagos
+  const chartData = sorted.map((r) => ({
+    mes: formatMesLabel(r.mes),
+    receita: r.receita,
+    ticket_medio: r.ticket_medio,
+  }))
 
-    return [
-      { label: 'Sessoes', value: sessoes, pct: 100 },
-      { label: 'Visualizou Produto', value: vizProduto, pct: 38 },
-      { label: 'Adicionou ao Carrinho', value: addCart, pct: 12 },
-      { label: 'Iniciou Checkout', value: iniCheckout, pct: 4.5 },
-      { label: 'Comprou', value: comprou, pct: sessoes > 0 ? ((comprou / sessoes) * 100) : 0 },
-    ]
-  }, [pedidosPagos])
+  return (
+    <Card title="Vendas Mensais">
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis dataKey="mes" tick={{ fill: AXIS_TICK, fontSize: 12 }} />
+          <YAxis
+            yAxisId="left"
+            tick={{ fill: AXIS_TICK, fontSize: 12 }}
+            tickFormatter={(v: number) => formatCurrency(v)}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fill: AXIS_TICK, fontSize: 12 }}
+            tickFormatter={(v: number) => formatCurrency(v)}
+          />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            formatter={(value: number, name: string) => [
+              formatCurrency(value),
+              name === 'receita' ? 'Receita' : 'Ticket Medio',
+            ]}
+          />
+          <Legend />
+          <Area
+            yAxisId="left"
+            type="monotone"
+            dataKey="receita"
+            name="Receita"
+            stroke={GREEN}
+            fill={GREEN}
+            fillOpacity={0.2}
+          />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="ticket_medio"
+            name="Ticket Medio"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </Card>
+  )
+}
 
-  const conversions = useMemo<Conversion[]>(() => {
-    if (funnel.length < 2) return []
-    const convs: Conversion[] = []
-    for (let i = 0; i < funnel.length - 1; i++) {
-      const from = funnel[i]
-      const to = funnel[i + 1]
-      const rate = from.value > 0 ? ((to.value / from.value) * 100) : 0
-      const lost = from.value - to.value
-      convs.push({ from: from.label, to: to.label, rate, lost })
+// ─── Section 3: Recorrencia (stacked BarChart) ───────────────
+function SecaoRecorrencia({ data }: { data: RecorrenciaRow[] }) {
+  const sorted = useMemo(
+    () => [...data].sort((a, b) => a.mes.localeCompare(b.mes)),
+    [data],
+  )
+
+  if (sorted.length === 0) {
+    return (
+      <Card title="Recorrencia de Clientes">
+        <EstadoVazio mensagem="Sem dados de recorrencia." />
+      </Card>
+    )
+  }
+
+  const chartData = sorted.map((r) => ({
+    mes: formatMesLabel(r.mes),
+    clientes_novos: r.clientes_novos,
+    clientes_recorrentes: r.clientes_recorrentes,
+    taxa_recompra: r.taxa_recompra,
+  }))
+
+  return (
+    <Card title="Recorrencia de Clientes">
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis dataKey="mes" tick={{ fill: AXIS_TICK, fontSize: 12 }} />
+          <YAxis yAxisId="left" tick={{ fill: AXIS_TICK, fontSize: 12 }} />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fill: AXIS_TICK, fontSize: 12 }}
+            tickFormatter={(v: number) => `${v}%`}
+          />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            formatter={(value: number, name: string) => {
+              if (name === 'taxa_recompra') return [formatPercent(value), 'Taxa Recompra']
+              return [formatNumber(value), name === 'clientes_novos' ? 'Novos' : 'Recorrentes']
+            }}
+          />
+          <Legend />
+          <Bar yAxisId="left" dataKey="clientes_novos" name="Novos" stackId="a" fill={BLUE} />
+          <Bar yAxisId="left" dataKey="clientes_recorrentes" name="Recorrentes" stackId="a" fill={EMERALD} />
+          <Line
+            yAxisId="right"
+            type="monotone"
+            dataKey="taxa_recompra"
+            name="Taxa Recompra"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={false}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </Card>
+  )
+}
+
+// ─── Section 4: Produtos Top 10 ─────────────────────────────
+function SecaoProdutos({ data }: { data: ShopifyProdutoRank[] }) {
+  const top10 = useMemo(() => data.slice(0, 10), [data])
+
+  if (top10.length === 0) {
+    return (
+      <Card title="Top 10 Produtos">
+        <EstadoVazio mensagem="Sem dados de produtos." />
+      </Card>
+    )
+  }
+
+  const maxReceita = Math.max(...top10.map((p) => p.receita_total), 1)
+
+  return (
+    <Card title="Top 10 Produtos">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+              <th className="py-2 px-2 w-8">#</th>
+              <th className="py-2 px-2">Produto</th>
+              <th className="py-2 px-2">SKU</th>
+              <th className="py-2 px-2 text-right">Qtd</th>
+              <th className="py-2 px-2 text-right">Receita</th>
+              <th className="py-2 px-2 text-right">Preco Medio</th>
+              <th className="py-2 px-2 w-40"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {top10.map((p, i) => {
+              const barWidth = (p.receita_total / maxReceita) * 100
+              return (
+                <tr key={p.sku || i} className="border-b border-gray-100 dark:border-gray-700/50">
+                  <td className="py-2.5 px-2 text-gray-400 font-mono">{i + 1}</td>
+                  <td className="py-2.5 px-2 text-gray-700 dark:text-gray-200 font-medium truncate max-w-[200px]">
+                    {p.produto}
+                  </td>
+                  <td className="py-2.5 px-2 text-gray-500 dark:text-gray-400 font-mono text-xs">
+                    {p.sku || '-'}
+                  </td>
+                  <td className="py-2.5 px-2 text-right text-gray-700 dark:text-gray-300">
+                    {formatNumber(p.qtd_vendida)}
+                  </td>
+                  <td className="py-2.5 px-2 text-right text-gray-700 dark:text-gray-300">
+                    {formatCurrency(p.receita_total)}
+                  </td>
+                  <td className="py-2.5 px-2 text-right text-gray-700 dark:text-gray-300">
+                    {formatCurrency(p.preco_medio)}
+                  </td>
+                  <td className="py-2.5 px-2">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-emerald-500 h-2 rounded-full transition-all"
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+// ─── Section 5: Cohort Heatmap ───────────────────────────────
+function SecaoCohort({ data }: { data: ShopifyCohort[] }) {
+  const { cohortMonths, purchaseOffsets, matrix, baselines } = useMemo(() => {
+    if (data.length === 0) return { cohortMonths: [], purchaseOffsets: [], matrix: new Map(), baselines: new Map() }
+
+    // Group by cohort_mes
+    const grouped = new Map<string, ShopifyCohort[]>()
+    for (const row of data) {
+      const arr = grouped.get(row.cohort_mes) || []
+      arr.push(row)
+      grouped.set(row.cohort_mes, arr)
     }
-    return convs
-  }, [funnel])
 
-  const taxaConversao = useMemo(() => {
-    const sessoes = 24973
-    return sessoes > 0 ? ((pedidosPagos / sessoes) * 100).toFixed(2) : '0.00'
-  }, [pedidosPagos])
+    const sortedCohorts = [...grouped.keys()].sort()
 
-  const maxVal = funnel.length > 0 ? funnel[0].value : 1
+    // For each cohort, compute month offsets
+    let maxOffset = 0
+    const mat = new Map<string, Map<number, number>>() // cohort -> offset -> clientes
+    const bases = new Map<string, number>() // cohort -> month-0 clientes
 
-  const barColors = [
-    'bg-blue-500',
-    'bg-indigo-500',
-    'bg-purple-500',
-    'bg-orange-500',
-    'bg-green-500',
-  ]
+    for (const cohort of sortedCohorts) {
+      const rows = grouped.get(cohort)!.sort((a, b) => a.mes_compra.localeCompare(b.mes_compra))
+      const offsetMap = new Map<number, number>()
 
-  if (loading) {
+      for (let i = 0; i < rows.length; i++) {
+        offsetMap.set(i, rows[i].clientes)
+      }
+
+      bases.set(cohort, rows[0]?.clientes ?? 0)
+      mat.set(cohort, offsetMap)
+      if (rows.length - 1 > maxOffset) maxOffset = rows.length - 1
+    }
+
+    const offsets = Array.from({ length: maxOffset + 1 }, (_, i) => i)
+    return { cohortMonths: sortedCohorts, purchaseOffsets: offsets, matrix: mat, baselines: bases }
+  }, [data])
+
+  if (cohortMonths.length === 0) {
+    return (
+      <Card title="Cohort de Retencao">
+        <EstadoVazio mensagem="Sem dados de cohort." />
+      </Card>
+    )
+  }
+
+  return (
+    <Card title="Cohort de Retencao">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr>
+              <th className="py-2 px-2 text-left text-gray-500 dark:text-gray-400 font-semibold">Cohort</th>
+              {purchaseOffsets.map((off) => (
+                <th key={off} className="py-2 px-2 text-center text-gray-500 dark:text-gray-400 font-semibold">
+                  M{off}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {cohortMonths.map((cohort) => {
+              const baseline = baselines.get(cohort) ?? 0
+              const offsetMap = matrix.get(cohort)!
+
+              return (
+                <tr key={cohort}>
+                  <td className="py-1.5 px-2 text-gray-600 dark:text-gray-300 font-mono whitespace-nowrap">
+                    {formatMesLabel(cohort)}
+                  </td>
+                  {purchaseOffsets.map((off) => {
+                    const clientes = offsetMap.get(off)
+                    if (clientes == null) {
+                      return <td key={off} className="py-1.5 px-2" />
+                    }
+                    const retention = baseline > 0 ? clientes / baseline : 0
+                    const pctLabel = off === 0 ? formatNumber(clientes) : `${(retention * 100).toFixed(0)}%`
+
+                    return (
+                      <td key={off} className="py-1.5 px-2 text-center">
+                        <div
+                          className="rounded px-1.5 py-1 text-white font-medium bg-emerald-500"
+                          style={{ opacity: off === 0 ? 1 : Math.max(retention, 0.1) }}
+                        >
+                          {pctLabel}
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+// ─── Main Page ───────────────────────────────────────────────
+export default function FunilPage() {
+  useDocumentTitle('Funil de Vendas')
+
+  const { data: vendasMensal = [], isLoading: loadingVendas } = useShopifyVendasMensal()
+  const { data: recorrencia = [], isLoading: loadingRecorrencia } = useShopifyRecorrencia()
+  const { data: produtosRank = [], isLoading: loadingProdutos } = useShopifyProdutosRank()
+  const { data: cohort = [], isLoading: loadingCohort } = useShopifyCohort()
+
+  const isLoading = loadingVendas || loadingRecorrencia || loadingProdutos || loadingCohort
+
+  const insights = useMemo(() => {
+    if (vendasMensal.length === 0 && recorrencia.length === 0 && produtosRank.length === 0 && cohort.length === 0) {
+      return []
+    }
+    return processInsights(
+      generateShopifyInsights({ vendasMensal, recorrencia, produtosRank, cohort }),
+    )
+  }, [vendasMensal, recorrencia, produtosRank, cohort])
+
+  const hasData = vendasMensal.length > 0 || recorrencia.length > 0 || produtosRank.length > 0 || cohort.length > 0
+
+  if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Spinner />
@@ -107,141 +414,31 @@ export default function FunilPage() {
     )
   }
 
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+          Funil de Vendas
+        </h2>
+        <EstadoVazio
+          mensagem="Nenhum dado Shopify encontrado."
+          cta="Verifique se as materialized views foram criadas no Supabase."
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-        Funil de Conversao
+        Funil de Vendas
       </h2>
 
-      {/* Warning banner */}
-      <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
-        <strong>Aviso:</strong> Os dados de sessoes, visualizacao de produto, carrinho e checkout sao estimativas.
-        Apenas os dados de pedidos pagos vem diretamente da Shopify.
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/40">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Sessoes</p>
-          <p className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">{formatNumber(24973)}</p>
-        </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/40">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pedidos Pagos</p>
-          <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{formatNumber(pedidosPagos)}</p>
-        </div>
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/40">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Taxa Conversao</p>
-          <p className="mt-1 text-2xl font-bold text-orange-600 dark:text-orange-400">{taxaConversao}%</p>
-        </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/40">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Receita</p>
-          <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(receita)}</p>
-        </div>
-      </div>
-
-      {/* Visual Funnel */}
-      <SectionCard title="Funil Visual">
-        <div className="space-y-3">
-          {funnel.map((stage, i) => {
-            const widthPct = maxVal > 0 ? Math.max((stage.value / maxVal) * 100, 2) : 2
-            const conv = conversions[i]
-            return (
-              <div key={stage.label}>
-                {/* Stage bar */}
-                <div className="flex items-center gap-3">
-                  <div className="w-44 shrink-0 text-right">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{stage.label}</p>
-                  </div>
-                  <div className="relative flex-1">
-                    <div
-                      className={`h-10 rounded-lg ${barColors[i] || 'bg-gray-400'} flex items-center px-3 transition-all duration-500`}
-                      style={{ width: `${widthPct}%` }}
-                    >
-                      <span className="text-xs font-bold text-white drop-shadow">
-                        {formatNumber(stage.value)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-16 shrink-0 text-right">
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {stage.pct.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Conversion arrow between stages */}
-                {conv && (
-                  <div className="ml-44 flex items-center gap-2 py-1 pl-3">
-                    <svg className="h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 5v14M5 12l7 7 7-7" />
-                    </svg>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {conv.rate.toFixed(1)}% conversao — {formatNumber(conv.lost)} perdidos
-                    </span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </SectionCard>
-
-      {/* Summary: Losses + Opportunities */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard title="Maiores Perdas">
-          <div className="space-y-3">
-            {conversions.map((c, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950/30"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {c.from} → {c.to}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Conversao: {c.rate.toFixed(1)}%
-                  </p>
-                </div>
-                <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                  -{formatNumber(c.lost)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Oportunidades">
-          <div className="space-y-3">
-            {conversions.map((c, i) => {
-              const currentFrom = funnel[i]?.value || 0
-              const currentTo = funnel[i + 1]?.value || 0
-              const currentRate = currentFrom > 0 ? (currentTo / currentFrom) * 100 : 0
-              const newRate = currentRate + 1
-              const newTo = Math.round(currentFrom * (newRate / 100))
-              const gain = newTo - currentTo
-              return (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border border-green-100 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      +1% em {c.from} → {c.to}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {currentRate.toFixed(1)}% → {newRate.toFixed(1)}%
-                    </p>
-                  </div>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                    +{formatNumber(gain)}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
-        </SectionCard>
-      </div>
+      <SecaoInsights insights={insights} />
+      <SecaoVendas data={vendasMensal} />
+      <SecaoRecorrencia data={recorrencia} />
+      <SecaoProdutos data={produtosRank} />
+      <SecaoCohort data={cohort} />
     </div>
   )
 }
