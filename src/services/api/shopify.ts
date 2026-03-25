@@ -3,7 +3,6 @@
 
 import { supabase } from '../supabase'
 import type { ShopifyPedido, ShopifyCliente, ShopifyProduto } from '../../types/database'
-import { throwApiError } from './errors'
 
 /** Result shape for all Shopify data. */
 export interface ShopifyData {
@@ -12,46 +11,53 @@ export interface ShopifyData {
   produtos: ShopifyProduto[]
 }
 
-/** Fetch Shopify orders (up to 5 000 rows). */
+/**
+ * Generic pagination helper that fetches all rows from a Supabase table,
+ * iterating in pages to avoid the default row-limit cap.
+ */
+async function fetchAllPages<T>(
+  table: string,
+  select: string,
+  pageSize = 1000,
+): Promise<T[]> {
+  let all: T[] = []
+  let page = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .range(from, to)
+
+    if (error) {
+      throw new Error(`fetch ${table}: ${error.message}`)
+    }
+
+    all = all.concat((data ?? []) as T[])
+    hasMore = (data?.length ?? 0) === pageSize
+    page++
+  }
+
+  return all
+}
+
+/** Fetch all Shopify orders using paginated requests. */
 export async function fetchShopifyPedidos(): Promise<ShopifyPedido[]> {
-  const { data, error } = await supabase
-    .from('shopify_pedidos')
-    .select('*')
-    .limit(5000)
-
-  if (error) {
-    throwApiError('fetchShopifyPedidos', error)
-  }
-
-  return (data ?? []) as ShopifyPedido[]
+  return fetchAllPages<ShopifyPedido>('shopify_pedidos', '*')
 }
 
-/** Fetch Shopify customers (up to 5 000 rows). */
+/** Fetch all Shopify customers using paginated requests. */
 export async function fetchShopifyClientes(): Promise<ShopifyCliente[]> {
-  const { data, error } = await supabase
-    .from('shopify_clientes')
-    .select('*')
-    .limit(5000)
-
-  if (error) {
-    throwApiError('fetchShopifyClientes', error)
-  }
-
-  return (data ?? []) as ShopifyCliente[]
+  return fetchAllPages<ShopifyCliente>('shopify_clientes', '*')
 }
 
-/** Fetch Shopify products (up to 5 000 rows). */
+/** Fetch all Shopify products using paginated requests. */
 export async function fetchShopifyProdutos(): Promise<ShopifyProduto[]> {
-  const { data, error } = await supabase
-    .from('shopify_produtos')
-    .select('*')
-    .limit(5000)
-
-  if (error) {
-    throwApiError('fetchShopifyProdutos', error)
-  }
-
-  return (data ?? []) as ShopifyProduto[]
+  return fetchAllPages<ShopifyProduto>('shopify_produtos', '*')
 }
 
 /** Fetch all Shopify data in parallel. */
