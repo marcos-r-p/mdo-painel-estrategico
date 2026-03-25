@@ -1,241 +1,189 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { DADOS } from '../data/seed'
+import { useState, useMemo } from 'react'
 import { formatCurrency } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
-import DateRangePicker from '../components/ui/DateRangePicker'
-import ProgressBar from '../components/ui/ProgressBar'
+import KPICard from '../components/ui/KPICard'
+import FluxoCaixaChart from '../components/charts/FluxoCaixaChart'
+import AgingChart from '../components/charts/AgingChart'
+import DRETable from '../components/financial/DRETable'
+import ComparativoCard from '../components/financial/ComparativoCard'
+import MargemTable from '../components/financial/MargemTable'
+import SyncButton from '../components/financial/SyncButton'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import {
+  useFluxoCaixa,
+  useDRE,
+  useAging,
+  useMargemProduto,
+  useMargemCanal,
+  useComparativo,
+} from '../services/queries/useFinancialQueries'
 
-interface DateRange {
-  dataIni: string
-  dataFim: string
-}
-
-interface DRELinha {
-  label: string
-  valor: number
-  nivel: number
-  destaque?: boolean
-  resultado?: boolean
+function SkeletonBlock({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700 ${className}`}
+    />
+  )
 }
 
 export default function FluxoCaixaPage() {
-  useDocumentTitle('Fluxo de Caixa')
-  const [searchParams] = useSearchParams()
-  const fonteAtiva = searchParams.get('fonte')
+  useDocumentTitle('Analise Financeira')
 
-  const [range, setRange] = useState<DateRange>({ dataIni: '', dataFim: '' })
+  const { data: fluxoCaixa, isLoading: loadingFluxo, isError: errorFluxo } = useFluxoCaixa()
+  const { data: dreData, isLoading: loadingDRE, isError: errorDRE } = useDRE()
+  const { data: agingData, isLoading: loadingAging, isError: errorAging } = useAging()
+  const { data: margemProduto, isLoading: loadingMargProd, isError: errorMargProd } = useMargemProduto()
+  const { data: margemCanal, isLoading: loadingMargCanal, isError: errorMargCanal } = useMargemCanal()
+  const { data: comparativo, isLoading: loadingComp, isError: errorComp } = useComparativo()
 
-  const historico = DADOS.fluxoCaixa.historico
-  const custosFixos = DADOS.custos.fixos
-  const custosVariaveis = DADOS.custos.variaveis
-  const custosFinanceiras = DADOS.custos.financeiras
-  const dre = DADOS.dre
-  const maxCustoFixo = Math.max(...custosFixos.map((c) => c.valor))
+  const availableMonths = useMemo(() => {
+    if (!dreData?.length) return []
+    const months = [...new Set(dreData.map((d) => d.ano_mes))].sort()
+    return months
+  }, [dreData])
 
-  const dreLinhas: DRELinha[] = [
-    { label: 'Receita Bruta', valor: dre.receitaBruta, nivel: 0 },
-    { label: '(-) Impostos', valor: dre.impostos, nivel: 1 },
-    { label: '= Receita Liquida', valor: dre.receitaLiquida, nivel: 0, destaque: true },
-    { label: '(-) CMV', valor: dre.cmv, nivel: 1 },
-    { label: '= Lucro Bruto', valor: dre.lucroBruto, nivel: 0, destaque: true },
-    { label: '(-) Marketing', valor: dre.despesasOp.marketing, nivel: 1 },
-    { label: '(-) Ocupacao', valor: dre.despesasOp.ocupacao, nivel: 1 },
-    { label: '(-) Logistica', valor: dre.despesasOp.logistica, nivel: 1 },
-    { label: '(-) Pessoal', valor: dre.despesasOp.pessoal, nivel: 1 },
-    { label: '(-) Financeiras', valor: dre.despesasOp.financeiras, nivel: 1 },
-    { label: '(-) Outras', valor: dre.despesasOp.outras, nivel: 1 },
-    { label: '= Resultado', valor: dre.resultado, nivel: 0, destaque: true, resultado: true },
-  ]
+  const [selectedMonth, setSelectedMonth] = useState<string>('')
+
+  const activeMonth = selectedMonth || availableMonths[availableMonths.length - 1] || ''
+
+  // Derive KPI values from DRE data for the selected month
+  const kpis = useMemo(() => {
+    if (!dreData?.length || !activeMonth) {
+      return { receitaLiquida: 0, despesas: 0, lucroLiquido: 0, margemPct: 0 }
+    }
+    const monthRows = dreData.filter((d) => d.ano_mes === activeMonth)
+    const valueMap = new Map(monthRows.map((r) => [r.linha, r.valor]))
+
+    const receitaLiquida = valueMap.get('receita_liquida') ?? 0
+    const despOp = valueMap.get('despesas_operacionais') ?? 0
+    const despFin = valueMap.get('despesas_financeiras') ?? 0
+    const cmv = valueMap.get('cmv') ?? 0
+    const despesas = Math.abs(despOp) + Math.abs(despFin) + Math.abs(cmv)
+    const lucroLiquido = valueMap.get('lucro_liquido') ?? 0
+    const margemPct = valueMap.get('margem_liquida_pct') ?? 0
+
+    return { receitaLiquida, despesas, lucroLiquido, margemPct }
+  }, [dreData, activeMonth])
+
+  const isLoading = loadingFluxo || loadingDRE || loadingAging || loadingMargProd || loadingMargCanal || loadingComp
+  const hasError = errorFluxo || errorDRE || errorAging || errorMargProd || errorMargCanal || errorComp
+  const hasNoData = !isLoading && !hasError &&
+    !fluxoCaixa?.length && !dreData?.length && !agingData?.length
 
   return (
     <div className="space-y-6">
-      {/* Date Range Picker */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-          Fluxo de Caixa
-          {fonteAtiva && (
-            <span className="ml-2 text-sm font-normal text-gray-500">({fonteAtiva})</span>
-          )}
+          Analise Financeira
         </h2>
-        <DateRangePicker dataIni={range.dataIni} dataFim={range.dataFim} onChange={setRange} />
+        <div className="flex items-center gap-4">
+          {availableMonths.length > 0 && (
+            <select
+              value={activeMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+            >
+              {availableMonths.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          )}
+          <SyncButton />
+        </div>
       </div>
 
-      {/* Evolucao do Saldo Bancario */}
-      <SectionCard title="Evolucao do Saldo Bancario">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                <th className="pb-3 pr-4">Periodo</th>
-                <th className="pb-3 pr-4 text-right">Saldo Inicial</th>
-                <th className="pb-3 pr-4 text-right">Saldo Final</th>
-                <th className="pb-3 pr-4 text-right">Variacao</th>
-                <th className="pb-3 text-right">Aportes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {historico.map((h) => (
-                <tr key={h.mes} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="py-2.5 pr-4 font-medium text-gray-800 dark:text-gray-200">
-                    {h.mes}
-                  </td>
-                  <td className="py-2.5 pr-4 text-right text-gray-600 dark:text-gray-400">
-                    {h.saldoInicial != null ? formatCurrency(h.saldoInicial) : '-'}
-                  </td>
-                  <td className="py-2.5 pr-4 text-right text-gray-600 dark:text-gray-400">
-                    {h.saldoFinal != null ? formatCurrency(h.saldoFinal) : '-'}
-                  </td>
-                  <td
-                    className={`py-2.5 pr-4 text-right font-semibold ${
-                      h.variacao != null
-                        ? h.variacao >= 0
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-600 dark:text-red-400'
-                        : 'text-gray-400'
-                    }`}
-                  >
-                    {h.variacao != null ? formatCurrency(h.variacao) : '-'}
-                  </td>
-                  <td className="py-2.5 text-right text-gray-600 dark:text-gray-400">
-                    {h.aportes != null ? formatCurrency(h.aportes) : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Error state */}
+      {hasError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400">
+          Erro ao carregar dados financeiros. Verifique sua conexao e tente novamente.
         </div>
-      </SectionCard>
+      )}
 
-      {/* Despesas por Categoria */}
-      <SectionCard title="Despesas por Categoria">
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Custos Fixos */}
-          <div>
-            <h4 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Custos Fixos
-              <span className="ml-2 text-xs font-normal text-gray-500">
-                (Total: {formatCurrency(DADOS.custos.totalFixo)})
-              </span>
-            </h4>
-            <div className="space-y-3">
-              {custosFixos.map((c) => (
-                <ProgressBar
-                  key={c.item}
-                  label={c.item}
-                  detail={formatCurrency(c.valor)}
-                  value={c.valor}
-                  max={maxCustoFixo}
-                  color={c.criticidade === 'alta' ? 'red' : 'blue'}
-                  showPercent
-                />
-              ))}
-            </div>
+      {/* Empty state */}
+      {hasNoData && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+          Nenhum dado financeiro disponivel. Execute a sincronizacao para carregar dados do Bling.
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {isLoading && !hasError && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonBlock key={i} className="h-24" />
+            ))}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <SkeletonBlock className="col-span-2 h-80" />
+            <SkeletonBlock className="h-80" />
+          </div>
+          <SkeletonBlock className="h-64" />
+        </div>
+      )}
+
+      {/* Main content */}
+      {!isLoading && !hasNoData && !hasError && (
+        <>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <KPICard
+              label="Receita Liquida"
+              value={formatCurrency(kpis.receitaLiquida)}
+              color={kpis.receitaLiquida > 0 ? 'green' : 'gray'}
+            />
+            <KPICard
+              label="Despesas"
+              value={formatCurrency(kpis.despesas)}
+              color={kpis.despesas > 0 ? 'red' : 'gray'}
+            />
+            <KPICard
+              label="Lucro Liquido"
+              value={formatCurrency(kpis.lucroLiquido)}
+              color={kpis.lucroLiquido >= 0 ? 'green' : 'red'}
+              trend={kpis.lucroLiquido > 0 ? 'up' : kpis.lucroLiquido < 0 ? 'down' : 'neutral'}
+            />
+            <KPICard
+              label="Margem Liquida"
+              value={`${kpis.margemPct.toFixed(1)}%`}
+              color={kpis.margemPct >= 10 ? 'green' : kpis.margemPct >= 0 ? 'orange' : 'red'}
+            />
           </div>
 
-          {/* Custos Variaveis + Financeiras */}
-          <div className="space-y-6">
-            <div>
-              <h4 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Custos Variaveis
-                <span className="ml-2 text-xs font-normal text-gray-500">
-                  (Total: {formatCurrency(DADOS.custos.totalVariavel)})
-                </span>
-              </h4>
-              <div className="space-y-2">
-                {custosVariaveis.map((c) => (
-                  <div
-                    key={c.fornecedor}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        {c.fornecedor}
-                      </span>
-                      <span className="ml-2 text-xs text-gray-500">{c.tipo}</span>
-                    </div>
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">
-                      {formatCurrency(c.valor)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Financeiras
-                <span className="ml-2 text-xs font-normal text-gray-500">
-                  (Total: {formatCurrency(DADOS.custos.totalFinanceiro)})
-                </span>
-              </h4>
-              <div className="space-y-2">
-                {custosFinanceiras.map((c) => (
-                  <div
-                    key={c.item}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <div>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
-                        {c.item}
-                      </span>
-                      <span className="ml-2 text-xs text-gray-500">{c.tipo}</span>
-                    </div>
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">
-                      {formatCurrency(c.valor)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* Charts row: FluxoCaixa + Aging */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <SectionCard title="Fluxo de Caixa" className="lg:col-span-2">
+              <FluxoCaixaChart data={fluxoCaixa ?? []} />
+            </SectionCard>
+            <SectionCard title="Aging - Contas a Receber/Pagar">
+              <AgingChart data={agingData ?? []} />
+            </SectionCard>
           </div>
-        </div>
-      </SectionCard>
 
-      {/* DRE Simplificado */}
-      <SectionCard title="DRE Simplificado">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {dreLinhas.map((linha) => (
-                <tr
-                  key={linha.label}
-                  className={
-                    linha.destaque
-                      ? 'bg-gray-50 dark:bg-gray-800/50'
-                      : 'hover:bg-gray-50 dark:hover:bg-gray-800/30'
-                  }
-                >
-                  <td
-                    className={`py-2.5 pr-4 ${
-                      linha.destaque
-                        ? 'font-bold text-gray-900 dark:text-gray-100'
-                        : 'text-gray-700 dark:text-gray-300'
-                    }`}
-                    style={{ paddingLeft: linha.nivel * 20 }}
-                  >
-                    {linha.label}
-                  </td>
-                  <td
-                    className={`py-2.5 text-right font-semibold ${
-                      linha.resultado
-                        ? linha.valor >= 0
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-600 dark:text-red-400'
-                        : linha.valor < 0
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-gray-800 dark:text-gray-200'
-                    }`}
-                  >
-                    {formatCurrency(linha.valor)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
+          {/* DRE Table */}
+          <SectionCard title="Demonstrativo de Resultados (DRE)">
+            <DRETable data={dreData ?? []} selectedMonth={activeMonth} />
+          </SectionCard>
+
+          {/* Comparativo + Margem Produto */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <SectionCard title="Comparativo Mensal">
+              <ComparativoCard data={comparativo ?? []} selectedMonth={activeMonth} />
+            </SectionCard>
+            <SectionCard title="Margem por Produto">
+              <MargemTable data={margemProduto ?? []} type="produto" />
+            </SectionCard>
+          </div>
+
+          {/* Margem Canal */}
+          <SectionCard title="Margem por Canal">
+            <MargemTable data={margemCanal ?? []} type="canal" />
+          </SectionCard>
+        </>
+      )}
     </div>
   )
 }
