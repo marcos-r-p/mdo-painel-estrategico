@@ -1,5 +1,9 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  ],
+  "crons": [{
+    "path": "/api/cron/bling-sync",
+    "schedule": "0 6 * * *"
+  }]
 }
