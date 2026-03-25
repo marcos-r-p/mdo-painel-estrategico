@@ -1,172 +1,355 @@
-import { useCRMDashboard } from '../services/queries/useRDStationQueries'
+import { useMemo } from 'react'
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts'
+import {
+  useCrmFunil, useCrmEvolucao, useCrmPerdas,
+  useCrmResponsaveis, useCrmOrigens, useCrmDealsParados,
+} from '../services/queries/useRDStationQueries'
+import { generateCrmInsights } from '../lib/insights/crm-insights'
+import { processInsights } from '../lib/insights/engine'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { CRM_SEED } from '../data/seed'
-import DemoBanner from '../components/ui/DemoBanner'
 import Spinner from '../components/ui/Spinner'
-import KPICard from '../components/ui/KPICard'
-import Badge from '../components/ui/Badge'
-import { formatCurrency } from '../lib/formatters'
-import type { CRMData } from '../types/domain'
+import { formatCurrency, formatPercent, formatNumber, formatMesLabel } from '../lib/formatters'
+import type { Insight } from '../lib/insights/types'
+import type {
+  CrmFunilPeriodo, CrmEvolucaoMensal, CrmPerda,
+  CrmResponsavel, CrmOrigem, CrmDealParado,
+} from '../types/crm'
 
-// ── Shared props for all sub-sections ───────────────────────
-interface CRMSectionProps {
-  crm: CRMData
-}
+// ── Recharts dark theme tokens ───────────────────────────────
+const GRID_STROKE = '#374151'
+const AXIS_TICK = '#9ca3af'
+const TOOLTIP_BG = '#1f2937'
+const TOOLTIP_BORDER = '#374151'
+const GREEN = '#10b981'
+const RED = '#ef4444'
+const BLUE = '#3b82f6'
+const YELLOW = '#eab308'
+const PIE_COLORS = [RED, YELLOW, BLUE, GREEN, '#8b5cf6', '#f97316', '#06b6d4', '#ec4899']
 
-/* ═══════════════════════════════════════════════════════════════
-   1. KPIs DO FUNIL
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMKPIs({ crm }: CRMSectionProps) {
-  const etapaOrcamento = crm.etapas?.find(e => e.nome.toLowerCase().includes('orc'))
-  const valorOrcamento = etapaOrcamento?.valor ?? 225790.74
-  const qtdOrcamento = etapaOrcamento?.qtd ?? 221
-
+// ── Empty state ──────────────────────────────────────────────
+function EstadoVazio({ mensagem, cta }: { mensagem: string; cta?: string }) {
   return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Snapshot do funil
-      </h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <KPICard label="Pipeline total" value={formatCurrency(crm.valorPipeline ?? 473557)}
-          subvalue={`${crm.totalNegociacoes ?? 869} negociações`} color="orange" />
-        <KPICard label="Conversão geral" value={`${crm.taxaConversaoGeral ?? 39}%`}
-          subvalue="histórico completo" trend="down" color="red" />
-        <KPICard label="Perdido (6 meses)"
-          value={formatCurrency(crm.evolucaoMensal ? crm.evolucaoMensal.reduce((a, m) => a + m.valorPerdido, 0) : 323996)}
-          subvalue="490 negociações" trend="down" color="red" />
-        <KPICard label="Ticket médio CRM" value={formatCurrency(crm.ticketMedioMesAtual ?? 289)}
-          subvalue="vs R$177 no site" trend="up" color="green" />
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard label="Orçamentos parados"
-          value={formatCurrency(valorOrcamento)}
-          subvalue={`${qtdOrcamento} negociações`} color="red" />
-        <KPICard label="Mar/26 — perdido" value="R$ 151,8k"
-          subvalue="149 perdidas em 23 dias" trend="down" color="red" />
-        <KPICard label="Mar/26 — vendido" value="R$ 24,3k"
-          subvalue="relação 6:1 perda/venda" trend="down" color="red" />
-        <KPICard label="Ciclo de venda" value={`${crm.cicloVendaDias ?? 7} dias`}
-          subvalue={`vs ${crm.cicloPercaDias ?? 10}d para perder`} color="gray" />
-      </div>
+    <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+      <svg className="h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+      </svg>
+      <p className="text-sm">{mensagem}</p>
+      {cta && <p className="text-xs mt-2 text-gray-500">{cta}</p>}
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   2. FUNIL VISUAL COM BARRAS PROPORCIONAIS
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMFunil({ crm }: CRMSectionProps) {
-  const etapas = crm.etapas ?? []
-  const maxQtd = Math.max(...etapas.map(e => e.qtd), 1)
-
+// ── Section wrapper ──────────────────────────────────────────
+function SecaoCard({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="mb-6">
+    <div>
       <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Funil — conversão por etapa
+        {titulo}
       </h2>
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-        <div className="space-y-3">
-          {etapas.map((etapa, i) => {
-            const isGargalo = etapa.taxaAvanco != null && etapa.taxaAvanco < 70
-            return (
-              <div key={i} className={`p-3 rounded-lg ${isGargalo ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-800/50'}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-medium ${isGargalo ? 'text-red-700 dark:text-red-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {etapa.nome}
-                    {isGargalo && <span className="ml-2 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">Gargalo</span>}
-                  </span>
-                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{etapa.qtd} negociações</span>
-                    <span>{formatCurrency(etapa.valor ?? 0)}</span>
-                    {etapa.taxaAvanco != null && (
-                      <span className={`font-medium ${isGargalo ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                        {etapa.taxaAvanco}% avançam
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${isGargalo ? 'bg-red-500' : 'bg-green-500'} rounded-full transition-all duration-700`}
-                    style={{ width: `${(etapa.qtd / maxQtd) * 100}%` }}
-                  />
-                </div>
-                {(etapa.perdas > 0 || etapa.vendas > 0) && (
-                  <div className="flex gap-4 mt-1.5 text-xs">
-                    <span className="text-red-500 dark:text-red-400">{etapa.perdas} perdas</span>
-                    <span className="text-green-500 dark:text-green-400">{etapa.vendas} vendas</span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        {children}
       </div>
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   3. MOTIVOS DE PERDA
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMPerdas({ crm }: CRMSectionProps) {
-  const motivos = crm.motivosPerda ?? []
+// ═══════════════════════════════════════════════════════════════
+// 1. INSIGHTS
+// ═══════════════════════════════════════════════════════════════
+function SecaoInsights({ insights }: { insights: Insight[] }) {
+  if (insights.length === 0) return null
+
+  const severityStyle: Record<string, string> = {
+    critico: 'bg-red-500/10 border-red-500/30 text-red-400',
+    atencao: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
+    info: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+  }
+  const typeStyle: Record<string, string> = {
+    oportunidade: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+  }
 
   return (
-    <div className="mb-6">
+    <div>
       <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Motivos de perda — últimos 6 meses
+        Insights automaticos
       </h2>
-
-      <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4">
-        <p className="text-red-700 dark:text-red-300 text-sm font-medium">
-          43% das perdas = &quot;Sem Resposta&quot; — follow-up ausente
-        </p>
-        <p className="text-red-600 dark:text-red-400 text-xs mt-1">
-          211 negociações perdidas nos últimos 6 meses por falta de retorno ativo. Solução: automação D+1 e D+3 no RD Station.
-        </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {insights.map((ins) => {
+          const style = typeStyle[ins.type] ?? severityStyle[ins.severity] ?? severityStyle.info
+          return (
+            <div key={ins.id} className={`border rounded-xl p-4 ${style}`}>
+              <p className="text-sm font-semibold mb-1">{ins.titulo}</p>
+              <p className="text-xs opacity-80 mb-2">{ins.descricao}</p>
+              {ins.metrica.variacao != null && (
+                <p className="text-xs font-mono mb-2">
+                  {formatNumber(ins.metrica.atual)}
+                  {ins.metrica.anterior != null && ` (anterior: ${formatNumber(ins.metrica.anterior)})`}
+                  {' '}{formatPercent(ins.metrica.variacao)}
+                </p>
+              )}
+              <p className="text-xs italic opacity-70">{ins.recomendacao}</p>
+            </div>
+          )
+        })}
       </div>
+    </div>
+  )
+}
 
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+// ═══════════════════════════════════════════════════════════════
+// 2. FUNIL (vertical bar chart)
+// ═══════════════════════════════════════════════════════════════
+function SecaoFunil({ data }: { data: CrmFunilPeriodo[] }) {
+  const latestMonth = useMemo(() => {
+    if (data.length === 0) return []
+    const meses = [...new Set(data.map(d => d.mes))].sort()
+    const ultimo = meses[meses.length - 1]
+    return data.filter(d => d.mes === ultimo)
+  }, [data])
+
+  if (latestMonth.length === 0) {
+    return (
+      <SecaoCard titulo="Funil de vendas">
+        <EstadoVazio mensagem="Sem dados de funil disponíveis" cta="Verifique a integração com o RD Station" />
+      </SecaoCard>
+    )
+  }
+
+  return (
+    <SecaoCard titulo={`Funil de vendas — ${formatMesLabel(latestMonth[0]?.mes)}`}>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={latestMonth} layout="vertical" margin={{ left: 20, right: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis type="number" tick={{ fill: AXIS_TICK, fontSize: 12 }} />
+          <YAxis dataKey="etapa" type="category" tick={{ fill: AXIS_TICK, fontSize: 12 }} width={140} />
+          <Tooltip
+            contentStyle={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8 }}
+            labelStyle={{ color: AXIS_TICK }}
+            formatter={(value: number, name: string) => {
+              if (name === 'valor_total') return [formatCurrency(value), 'Valor total']
+              if (name === 'qtd') return [formatNumber(value), 'Quantidade']
+              if (name === 'vendas') return [formatNumber(value), 'Vendas']
+              if (name === 'perdas') return [formatNumber(value), 'Perdas']
+              return [value, name]
+            }}
+          />
+          <Legend />
+          <Bar dataKey="qtd" fill={BLUE} name="Quantidade" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="vendas" fill={GREEN} name="Vendas" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="perdas" fill={RED} name="Perdas" radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Motivo</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Qtd</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase w-48">%</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Ação</th>
+          <thead>
+            <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+              <th className="text-left px-3 py-2">Etapa</th>
+              <th className="text-right px-3 py-2">Qtd</th>
+              <th className="text-right px-3 py-2">Valor total</th>
+              <th className="text-right px-3 py-2">Vendas</th>
+              <th className="text-right px-3 py-2">Perdas</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {motivos.map((m, i) => {
-              const isCritico = m.percentual >= 20
-              const isAlerta = m.percentual >= 5 && m.percentual < 20
+            {latestMonth.map((row, i) => (
+              <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                <td className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium">{row.etapa}</td>
+                <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{formatNumber(row.qtd)}</td>
+                <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{formatCurrency(row.valor_total)}</td>
+                <td className="px-3 py-2 text-right text-green-600 dark:text-green-400">{formatNumber(row.vendas)}</td>
+                <td className="px-3 py-2 text-right text-red-600 dark:text-red-400">{formatNumber(row.perdas)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SecaoCard>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3. EVOLUCAO MENSAL (line chart)
+// ═══════════════════════════════════════════════════════════════
+function SecaoEvolucao({ data }: { data: CrmEvolucaoMensal[] }) {
+  const chartData = useMemo(
+    () => [...data].sort((a, b) => a.mes.localeCompare(b.mes)).map(d => ({
+      ...d,
+      label: formatMesLabel(d.mes),
+    })),
+    [data],
+  )
+
+  if (chartData.length === 0) {
+    return (
+      <SecaoCard titulo="Evolucao mensal">
+        <EstadoVazio mensagem="Sem dados de evolução disponíveis" />
+      </SecaoCard>
+    )
+  }
+
+  return (
+    <SecaoCard titulo="Evolucao mensal — valor vendido vs perdido">
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={chartData} margin={{ left: 10, right: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis dataKey="label" tick={{ fill: AXIS_TICK, fontSize: 12 }} />
+          <YAxis tick={{ fill: AXIS_TICK, fontSize: 12 }} tickFormatter={(v: number) => formatCurrency(v)} />
+          <Tooltip
+            contentStyle={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8 }}
+            labelStyle={{ color: AXIS_TICK }}
+            formatter={(value: number, name: string) => {
+              if (name === 'valor_vendido') return [formatCurrency(value), 'Vendido']
+              if (name === 'valor_perdido') return [formatCurrency(value), 'Perdido']
+              return [formatCurrency(value), name]
+            }}
+          />
+          <Legend />
+          <Line type="monotone" dataKey="valor_vendido" stroke={GREEN} name="valor_vendido" strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="valor_perdido" stroke={RED} name="valor_perdido" strokeWidth={2} dot={{ r: 3 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </SecaoCard>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 4. PERDAS (donut + table)
+// ═══════════════════════════════════════════════════════════════
+function SecaoPerdas({ data }: { data: CrmPerda[] }) {
+  const top5 = useMemo(() => data.slice(0, 5), [data])
+
+  if (data.length === 0) {
+    return (
+      <SecaoCard titulo="Motivos de perda">
+        <EstadoVazio mensagem="Sem dados de perdas disponíveis" />
+      </SecaoCard>
+    )
+  }
+
+  return (
+    <SecaoCard titulo="Motivos de perda">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={top5}
+              dataKey="qtd"
+              nameKey="motivo"
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={100}
+              paddingAngle={2}
+              label={({ motivo, percentual }: { motivo: string; percentual: number }) =>
+                `${motivo.slice(0, 15)}${motivo.length > 15 ? '...' : ''} (${percentual}%)`
+              }
+            >
+              {top5.map((_, i) => (
+                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8 }}
+              formatter={(value: number) => [formatNumber(value), 'Quantidade']}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                <th className="text-left px-3 py-2">Motivo</th>
+                <th className="text-right px-3 py-2">Qtd</th>
+                <th className="text-right px-3 py-2">%</th>
+                <th className="text-right px-3 py-2">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {data.map((p, i) => {
+                const isCritico = p.percentual >= 20
+                return (
+                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium">
+                      {isCritico && <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-2" />}
+                      {p.motivo}
+                    </td>
+                    <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{formatNumber(p.qtd)}</td>
+                    <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{p.percentual}%</td>
+                    <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{formatCurrency(p.valor_total)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </SecaoCard>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. RESPONSAVEIS (table with bar indicators)
+// ═══════════════════════════════════════════════════════════════
+function SecaoResponsaveis({ data }: { data: CrmResponsavel[] }) {
+  const maxDeals = useMemo(() => Math.max(...data.map(r => r.total_deals), 1), [data])
+
+  if (data.length === 0) {
+    return (
+      <SecaoCard titulo="Performance por responsavel">
+        <EstadoVazio mensagem="Sem dados de responsáveis disponíveis" />
+      </SecaoCard>
+    )
+  }
+
+  return (
+    <SecaoCard titulo="Performance por responsavel">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+              <th className="text-left px-3 py-2">Responsavel</th>
+              <th className="text-right px-3 py-2">Total deals</th>
+              <th className="text-left px-3 py-2 w-32">Volume</th>
+              <th className="text-right px-3 py-2">Vendas</th>
+              <th className="text-right px-3 py-2">Conversao</th>
+              <th className="text-right px-3 py-2">Ticket medio</th>
+              <th className="text-right px-3 py-2">Valor vendas</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            {data.map((r, i) => {
+              const convColor =
+                r.taxa_conversao >= 40 ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
+                r.taxa_conversao >= 20 ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
               return (
-                <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">
-                    {isCritico && <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-2" />}
-                    {isAlerta && <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mr-2" />}
-                    {!isCritico && !isAlerta && <span className="inline-block w-2 h-2 rounded-full bg-gray-300 mr-2" />}
-                    {m.motivo}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{m.qtd}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${isCritico ? 'bg-red-500' : isAlerta ? 'bg-yellow-500' : 'bg-gray-400'}`}
-                          style={{ width: `${m.percentual}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{m.percentual}%</span>
+                <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium">{r.responsavel}</td>
+                  <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{formatNumber(r.total_deals)}</td>
+                  <td className="px-3 py-2">
+                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${(r.total_deals / maxDeals) * 100}%` }}
+                      />
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                    {m.motivo.includes('Resposta') && 'Automação follow-up D+1/D+3'}
-                    {m.motivo.includes('orçamento') && 'Técnica de fechamento + urgência'}
-                    {m.motivo.includes('Duplicada') && 'Deduplicação semanal no RD'}
-                    {m.motivo.includes('Telefone') && 'Tornar telefone obrigatório'}
-                    {m.motivo.includes('Preço') && 'Reforçar diferencial (laudo + origem)'}
+                  <td className="px-3 py-2 text-right text-green-600 dark:text-green-400">{formatNumber(r.vendas)}</td>
+                  <td className="px-3 py-2 text-right">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${convColor}`}>
+                      {r.taxa_conversao > 0 ? `${r.taxa_conversao}%` : '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">
+                    {r.ticket_medio > 0 ? formatCurrency(r.ticket_medio) : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 font-medium">
+                    {r.valor_total_vendas > 0 ? formatCurrency(r.valor_total_vendas) : '—'}
                   </td>
                 </tr>
               )
@@ -174,50 +357,90 @@ function SecaoCRMPerdas({ crm }: CRMSectionProps) {
           </tbody>
         </table>
       </div>
-    </div>
+    </SecaoCard>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   4. EVOLUÇÃO MENSAL
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMEvolucao({ crm }: CRMSectionProps) {
-  const evolucao = crm.evolucaoMensal ?? []
+// ═══════════════════════════════════════════════════════════════
+// 6. ORIGENS (horizontal bar chart)
+// ═══════════════════════════════════════════════════════════════
+function SecaoOrigens({ data }: { data: CrmOrigem[] }) {
+  if (data.length === 0) {
+    return (
+      <SecaoCard titulo="Origem dos leads">
+        <EstadoVazio mensagem="Sem dados de origens disponíveis" />
+      </SecaoCard>
+    )
+  }
 
   return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Evolução mensal — valor vendido vs perdido
-      </h2>
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+    <SecaoCard titulo="Origem dos leads">
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data} layout="vertical" margin={{ left: 20, right: 20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+          <XAxis type="number" tick={{ fill: AXIS_TICK, fontSize: 12 }} />
+          <YAxis dataKey="origem" type="category" tick={{ fill: AXIS_TICK, fontSize: 12 }} width={140} />
+          <Tooltip
+            contentStyle={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8 }}
+            labelStyle={{ color: AXIS_TICK }}
+            formatter={(value: number, name: string) => {
+              if (name === 'total') return [formatNumber(value), 'Total leads']
+              if (name === 'taxa_conversao') return [`${value}%`, 'Taxa conversão']
+              if (name === 'valor_convertido') return [formatCurrency(value), 'Valor convertido']
+              return [value, name]
+            }}
+          />
+          <Legend />
+          <Bar dataKey="total" fill={BLUE} name="total" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="convertidos" fill={GREEN} name="convertidos" radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </SecaoCard>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 7. DEALS PARADOS (urgency table)
+// ═══════════════════════════════════════════════════════════════
+function SecaoDealsParados({ data }: { data: CrmDealParado[] }) {
+  if (data.length === 0) {
+    return (
+      <SecaoCard titulo="Deals parados">
+        <EstadoVazio mensagem="Nenhum deal parado encontrado" cta="Otimo! Todos os deals estao em movimento." />
+      </SecaoCard>
+    )
+  }
+
+  return (
+    <SecaoCard titulo={`Deals parados (${data.length})`}>
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Mês</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Criadas</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Vendidas</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Perdidas</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Vendido (R$)</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Perdido (R$)</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Ratio P/V</th>
+          <thead>
+            <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+              <th className="text-left px-3 py-2">Deal</th>
+              <th className="text-left px-3 py-2">Etapa</th>
+              <th className="text-right px-3 py-2">Valor</th>
+              <th className="text-left px-3 py-2">Responsavel</th>
+              <th className="text-right px-3 py-2">Dias parado</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {evolucao.filter(m => m.vendidas > 0 || m.perdidas > 0).map((m, i) => {
-              const ratio = m.vendidas > 0 ? (m.perdidas / m.vendidas).toFixed(1) : '—'
-              const ratioNum = parseFloat(ratio)
-              const isCritico = !isNaN(ratioNum) && ratioNum > 2.5
+            {data.map((deal) => {
+              const badgeColor =
+                deal.dias_parado > 30 ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' :
+                deal.dias_parado > 14 ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
               return (
-                <tr key={i} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition ${isCritico ? 'bg-red-50 dark:bg-red-950' : ''}`}>
-                  <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{m.mes}</td>
-                  <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{m.criadas}</td>
-                  <td className="px-4 py-3 text-right text-green-600 dark:text-green-400 font-medium">{m.vendidas}</td>
-                  <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 font-medium">{m.perdidas}</td>
-                  <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{formatCurrency(m.valorVendido)}</td>
-                  <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">{formatCurrency(m.valorPerdido)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isCritico ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
-                      {ratio}:1
+                <tr key={deal.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300 font-medium max-w-[200px] truncate">
+                    {deal.deal_nome}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{deal.etapa}</td>
+                  <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{formatCurrency(deal.valor)}</td>
+                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{deal.responsavel ?? '—'}</td>
+                  <td className="px-3 py-2 text-right">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badgeColor}`}>
+                      {deal.dias_parado}d
                     </span>
                   </td>
                 </tr>
@@ -226,275 +449,58 @@ function SecaoCRMEvolucao({ crm }: CRMSectionProps) {
           </tbody>
         </table>
       </div>
-    </div>
+    </SecaoCard>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   5. PERFORMANCE POR RESPONSÁVEL
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMResponsaveis({ crm }: CRMSectionProps) {
-  const responsaveis = crm.responsaveis ?? []
-
-  return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Performance por responsável
-      </h2>
-
-      <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4">
-        <p className="text-red-700 dark:text-red-300 text-sm font-medium">
-          100% das negociações — Arnaldo Quagliato (últimos 6 meses)
-        </p>
-        <p className="text-red-600 dark:text-red-400 text-xs mt-1">
-          Risco operacional máximo. Qualquer ausência paralisa completamente as vendas.
-          Prioridade: treinar ao menos 1 pessoa para operar o funil do WhatsApp.
-        </p>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-800">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Responsável</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Criadas</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Vendidas</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Conversão</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Ticket médio</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Valor vendido</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-            {responsaveis.map((r, i) => (
-              <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
-                <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{r.nome}</td>
-                <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{r.criadas}</td>
-                <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">{r.vendidas}</td>
-                <td className="px-4 py-3 text-right">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.taxaConversao >= 40 ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : r.taxaConversao > 0 ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                    {r.taxaConversao > 0 ? `${r.taxaConversao}%` : '—'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">
-                  {r.ticketMedio > 0 ? formatCurrency(r.ticketMedio) : '—'}
-                </td>
-                <td className="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                  {r.valorVendido > 0 ? formatCurrency(r.valorVendido) : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   6. ORIGENS DOS LEADS
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMOrigens({ crm }: CRMSectionProps) {
-  const origens = crm.origens ?? []
-
-  return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Origem dos leads
-      </h2>
-
-      <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-xl p-4 mb-4">
-        <p className="text-orange-700 dark:text-orange-300 text-sm font-medium">
-          80% das origens = &quot;Desconhecido&quot; — sem ROI mensurável
-        </p>
-        <p className="text-orange-600 dark:text-orange-400 text-xs mt-1">
-          Configurar UTMs obrigatórios no WhatsApp, Instagram e Google Ads.
-          Sem isso, impossível saber qual canal traz os leads que convertem.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        {origens.map((o, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 dark:text-gray-400 w-44 flex-shrink-0 text-right">{o.fonte}</span>
-            <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
-              <div
-                className={`h-full ${o.fonte === 'Desconhecido' ? 'bg-red-400' : 'bg-blue-400'} flex items-center px-2 transition-all duration-700`}
-                style={{ width: `${o.percent}%`, minWidth: '30px' }}
-              >
-                <span className="text-xs text-white font-medium">{o.qtd}</span>
-              </div>
-            </div>
-            <span className="text-xs text-gray-500 dark:text-gray-400 w-8">{o.percent}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   7. SAÚDE DO CRM
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMSaude({ crm }: CRMSectionProps) {
-  const { saude } = crm
-  if (!saude) return null
-
-  const statusColor: Record<string, string> = {
-    ok: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
-    alerta: 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300',
-    critico: 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300',
-  }
-
-  return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Saúde do CRM — score geral: {saude.scoreGeral}/10
-      </h2>
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-        <div className="space-y-3">
-          {saude.dimensoes.map((d, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <span className="text-sm text-gray-700 dark:text-gray-300">{d.nome}</span>
-              <div className="flex items-center gap-3">
-                <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${d.status === 'ok' ? 'bg-green-500' : d.status === 'alerta' ? 'bg-yellow-500' : 'bg-red-500'}`}
-                    style={{ width: `${d.score * 10}%` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400 w-6 text-right">{d.score}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColor[d.status] ?? ''}`}>
-                  {d.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   8. PLANO DE AÇÃO CRM PRIORIZADO
-   ═══════════════════════════════════════════════════════════════ */
-function SecaoCRMAcoes({ crm }: CRMSectionProps) {
-  const acoes = [
-    {
-      prioridade: 1, urgencia: 'critico' as const, prazo: 'Hoje',
-      titulo: 'Automação follow-up em Orçamento Realizado',
-      impacto: `R$ 225.790 parados em ${crm.etapas?.find(e => e.nome?.includes('Or'))?.qtd ?? 221} negociações`,
-      acao: 'Criar fluxo RD: Orçamento Enviado → sem resposta 24h → mensagem automática. 3 tentativas.',
-      responsavel: 'Marcos configura no RD'
-    },
-    {
-      prioridade: 2, urgencia: 'critico' as const, prazo: 'Esta semana',
-      titulo: 'Tornar "Fonte" obrigatório no cadastro de lead',
-      impacto: '80% dos leads sem origem — Webi fatura R$ 8.850/mês sem ROI rastreável',
-      acao: 'Configurações RD → Campos obrigatórios → Fonte. Criar opções: WhatsApp, Instagram, Google, Indicação.',
-      responsavel: 'Marcos configura no RD'
-    },
-    {
-      prioridade: 3, urgencia: 'critico' as const, prazo: 'Esta semana',
-      titulo: 'Script de recuperação para os 211 "Sem Resposta"',
-      impacto: 'Recuperar 15% = +R$ 8.700/mês. Sobre 6 meses acumulado = +R$ 48k',
-      acao: 'Filtrar perdas com motivo "Sem Resposta" → campanha WhatsApp de reativação com cupom 10%.',
-      responsavel: 'Arnaldo executa'
-    },
-    {
-      prioridade: 4, urgencia: 'alto' as const, prazo: '30 dias',
-      titulo: 'Treinar 1 pessoa para operar o funil do WhatsApp',
-      impacto: '100% dependência de Arnaldo — risco operacional máximo',
-      acao: 'Playbook de atendimento já pronto. Treinar 1 atendente para cobrir etapas iniciais do funil.',
-      responsavel: 'Arnaldo + novo atendente'
-    },
-    {
-      prioridade: 5, urgencia: 'alto' as const, prazo: '30 dias',
-      titulo: 'Deduplicar 23 negociações com motivo "Duplicada"',
-      impacto: 'Ruído nos indicadores de perda — taxa real melhor que os 39% aparentes',
-      acao: 'Filtrar motivo "Duplicada" → mesclar ou excluir → recalcular taxa de conversão real.',
-      responsavel: 'Marcos / operação'
-    },
-  ]
-
-  const corUrgencia: Record<string, string> = {
-    critico: 'bg-red-500',
-    alto: 'bg-orange-500',
-    medio: 'bg-yellow-500'
-  }
-
-  return (
-    <div className="mb-6">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-        Plano de ação CRM — priorizado
-      </h2>
-
-      <div className="space-y-3">
-        {acoes.map((a, i) => (
-          <div key={i} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex gap-4">
-            <div className={`w-8 h-8 rounded-full ${corUrgencia[a.urgencia]} flex items-center justify-center text-white text-sm font-medium flex-shrink-0`}>
-              {a.prioridade}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-start justify-between gap-2 flex-wrap">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{a.titulo}</p>
-                <div className="flex gap-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${a.urgencia === 'critico' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' : 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300'}`}>
-                    {a.urgencia}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                    {a.prazo}
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{a.impacto}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1.5">{a.acao}</p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Responsável: {a.responsavel}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   COMPONENTE PRINCIPAL — CRMPage
-   ═══════════════════════════════════════════════════════════════ */
+// ═══════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════
 export default function CRMPage() {
   useDocumentTitle('CRM')
-  const { data: crmData, isLoading } = useCRMDashboard()
 
-  const crm: CRMData = crmData ?? CRM_SEED
-  const isDemoData = !crmData
+  const { data: funil = [], isLoading: l1 } = useCrmFunil()
+  const { data: evolucao = [], isLoading: l2 } = useCrmEvolucao()
+  const { data: perdas = [], isLoading: l3 } = useCrmPerdas()
+  const { data: responsaveis = [], isLoading: l4 } = useCrmResponsaveis()
+  const { data: origens = [], isLoading: l5 } = useCrmOrigens()
+  const { data: dealsParados = [], isLoading: l6 } = useCrmDealsParados()
+
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6
+
+  const insights = useMemo(
+    () => processInsights(generateCrmInsights({ funil, evolucao, dealsParados, responsaveis, origens, perdas })),
+    [funil, evolucao, dealsParados, responsaveis, origens, perdas],
+  )
+
+  const hasData = funil.length > 0 || evolucao.length > 0 || perdas.length > 0 ||
+    responsaveis.length > 0 || origens.length > 0 || dealsParados.length > 0
 
   if (isLoading) return <Spinner />
 
+  if (!hasData) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Performance CRM</h1>
+        <EstadoVazio
+          mensagem="Nenhum dado de CRM disponivel"
+          cta="Verifique a integracao com o RD Station e aguarde a sincronizacao."
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header com status */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-            Performance CRM
-          </h1>
-          <Badge type={isDemoData ? 'medio' : 'positivo'}>
-            {isDemoData ? 'Dados demo' : 'RD Station ao vivo'}
-          </Badge>
-        </div>
-      </div>
+      <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Performance CRM</h1>
 
-      {isDemoData && <DemoBanner />}
-
-      {/* 8 Seções de análise */}
-      <SecaoCRMKPIs crm={crm} />
-      <SecaoCRMFunil crm={crm} />
-      <SecaoCRMPerdas crm={crm} />
-      <SecaoCRMEvolucao crm={crm} />
-      <SecaoCRMResponsaveis crm={crm} />
-      <SecaoCRMOrigens crm={crm} />
-      <SecaoCRMSaude crm={crm} />
-      <SecaoCRMAcoes crm={crm} />
+      <SecaoInsights insights={insights} />
+      <SecaoFunil data={funil} />
+      <SecaoEvolucao data={evolucao} />
+      <SecaoPerdas data={perdas} />
+      <SecaoResponsaveis data={responsaveis} />
+      <SecaoOrigens data={origens} />
+      <SecaoDealsParados data={dealsParados} />
     </div>
   )
 }
