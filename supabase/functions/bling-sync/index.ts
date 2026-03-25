@@ -190,7 +190,194 @@ Deno.serve(async (req: Request) => {
     }
 
     if (tipo === "financeiro") {
-      sincronizados.financeiro = 0;
+      const steps: Array<{ step: string; status: string; registros: number; duracao_ms: number; erro?: string }> = [];
+
+      // --- Helper: run a financial sync step with retry (1 retry on failure) ---
+      async function runFinancialStep(
+        stepName: string,
+        fn: () => Promise<number>,
+      ) {
+        const t0 = Date.now();
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const count = await fn();
+            steps.push({ step: stepName, status: "sucesso", registros: count, duracao_ms: Date.now() - t0 });
+            sincronizados[stepName] = count;
+            return;
+          } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            if (attempt === 0) {
+              console.log(`[financeiro] ${stepName} falhou (tentativa 1), retrying: ${errorMsg}`);
+              continue;
+            }
+            console.error(`[financeiro] ${stepName} falhou após 2 tentativas: ${errorMsg}`);
+            steps.push({ step: stepName, status: "erro", registros: 0, duracao_ms: Date.now() - t0, erro: errorMsg });
+            sincronizados[stepName] = 0;
+          }
+        }
+      }
+
+      // --- Helper: get last sync date for incremental sync ---
+      async function getLastSyncDate(_stepName: string): Promise<string | null> {
+        const { data: lastLog } = await supabase
+          .from("bling_sync_log")
+          .select("created_at")
+          .eq("tipo", "financeiro")
+          .eq("status", "sucesso")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        return lastLog?.created_at ?? null;
+      }
+
+      // --- Helper: paginated sync with upsert ---
+      async function paginatedSync(
+        endpoint: string,
+        table: string,
+        mapRow: (item: any) => Record<string, unknown>,
+        extraParams?: string,
+      ): Promise<number> {
+        let page = 1;
+        let total = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const separator = endpoint.includes("?") ? "&" : "?";
+          const url = `${endpoint}${separator}pagina=${page}&limite=100${extraParams ? `&${extraParams}` : ""}`;
+          const data = await blingFetch(url, token);
+          const items = data.data ?? [];
+
+          if (items.length === 0) {
+            hasMore = false;
+            break;
+          }
+
+          const rows = items.map((item: any) => mapRow(item));
+
+          await supabase.from(table).upsert(rows, { onConflict: "bling_id" });
+          total += rows.length;
+          page++;
+
+          if (items.length < 100) hasMore = false;
+          // Rate limit: 350ms between calls (~3 req/s)
+          if (hasMore) await delay(350);
+        }
+
+        return total;
+      }
+
+      // 1. Sync Categorias (non-paginated endpoint)
+      await runFinancialStep("categorias", async () => {
+        const data = await blingFetch("/categorias/receitas-despesas", token);
+        const items = data.data ?? [];
+        if (items.length === 0) return 0;
+
+        const rows = items.map((c: any) => ({
+          bling_id: c.id,
+          descricao: c.descricao,
+          tipo: c.tipo,
+          situacao: c.situacao,
+          synced_at: new Date().toISOString(),
+        }));
+
+        await supabase.from("bling_categorias").upsert(rows, { onConflict: "bling_id" });
+        return rows.length;
+      });
+
+      // 2. Sync Contas a Receber (paginated, incremental)
+      await runFinancialStep("contas_receber", async () => {
+        const lastSync = await getLastSyncDate("contas_receber");
+        const extraParams = lastSync ? `dataAlteracaoInicial=${lastSync.slice(0, 10)}` : undefined;
+
+        return paginatedSync(
+          "/contas/receber",
+          "bling_contas_receber",
+          (item: any) => ({
+            bling_id: item.id,
+            situacao: item.situacao,
+            vencimento: item.vencimento,
+            valor: item.valor,
+            contato_id: item.contato?.id,
+            contato_nome: item.contato?.nome,
+            numero_documento: item.numeroDocumento,
+            competencia: item.competencia,
+            historico: item.historico,
+            categoria_id: item.categoria?.id,
+            portador_id: item.portador?.id,
+            synced_at: new Date().toISOString(),
+          }),
+          extraParams,
+        );
+      });
+
+      // 3. Sync Contas a Pagar (paginated, incremental)
+      await runFinancialStep("contas_pagar", async () => {
+        const lastSync = await getLastSyncDate("contas_pagar");
+        const extraParams = lastSync ? `dataAlteracaoInicial=${lastSync.slice(0, 10)}` : undefined;
+
+        return paginatedSync(
+          "/contas/pagar",
+          "bling_contas_pagar",
+          (item: any) => ({
+            bling_id: item.id,
+            situacao: item.situacao,
+            vencimento: item.vencimento,
+            valor: item.valor,
+            contato_id: item.contato?.id,
+            contato_nome: item.contato?.nome,
+            numero_documento: item.numeroDocumento,
+            competencia: item.competencia,
+            historico: item.historico,
+            categoria_id: item.categoria?.id,
+            portador_id: item.portador?.id,
+            synced_at: new Date().toISOString(),
+          }),
+          extraParams,
+        );
+      });
+
+      // 4. Sync Pedidos de Compra (paginated, incremental)
+      await runFinancialStep("pedidos_compra", async () => {
+        const lastSync = await getLastSyncDate("pedidos_compra");
+        const extraParams = lastSync ? `dataAlteracaoInicial=${lastSync.slice(0, 10)}` : undefined;
+
+        return paginatedSync(
+          "/pedidos/compras",
+          "bling_pedidos_compra",
+          (item: any) => ({
+            bling_id: item.id,
+            numero: item.numero,
+            data: item.data,
+            situacao: item.situacao?.valor,
+            fornecedor_id: item.fornecedor?.id,
+            fornecedor_nome: item.fornecedor?.nome,
+            valor_total: item.total,
+            observacoes: item.observacoes,
+            synced_at: new Date().toISOString(),
+          }),
+          extraParams,
+        );
+      });
+
+      // 5. Refresh materialized views
+      await runFinancialStep("refresh_views", async () => {
+        const { error } = await supabase.rpc("refresh_financial_views");
+        if (error) throw new Error(`refresh_financial_views failed: ${error.message}`);
+        return 0;
+      });
+
+      // Log with detailed steps
+      const totalRegistros = Object.values(sincronizados).reduce((a, b) => a + b, 0);
+      const hasErrors = steps.some((s) => s.status === "erro");
+
+      await supabase.from("bling_sync_log").insert({
+        tipo: "financeiro",
+        registros: totalRegistros,
+        status: hasErrors ? "parcial" : "sucesso",
+        steps,
+      });
+
+      return json({ status: hasErrors ? "parcial" : "ok", sincronizados, steps });
     }
 
     await supabase.from("bling_sync_log").insert({
@@ -200,7 +387,8 @@ Deno.serve(async (req: Request) => {
     });
 
     return json({ status: "ok", sincronizados });
-  } catch (err) {
-    return json({ status: "error", error: err.message }, 500);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return json({ status: "error", error: message }, 500);
   }
 });
