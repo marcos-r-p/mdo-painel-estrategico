@@ -25,7 +25,7 @@ O cliente não utiliza o Bling para gestão financeira completa — usa extratos
 - **NFR-2:** Parser OFX roda no browser — sem Edge Function para parsing
 - **NFR-3:** Conciliação roda como RPC function no Supabase (server-side)
 - **NFR-4:** Mesma arquitetura de materialized views do sistema Bling existente
-- **NFR-5:** RLS: authenticated = SELECT + INSERT + UPDATE (upload e revisão); service_role = full CRUD incluindo DELETE
+- **NFR-5:** RLS: authenticated = SELECT + INSERT + UPDATE + DELETE em extrato_bancario (cascade deleta transações); service_role = full CRUD
 
 ### Restrições
 
@@ -85,6 +85,16 @@ CREATE INDEX idx_extrato_transacao_extrato ON extrato_transacao (extrato_id);
 CREATE INDEX idx_extrato_transacao_data ON extrato_transacao (data);
 CREATE INDEX idx_extrato_transacao_conciliado ON extrato_transacao (conciliado) WHERE conciliado = false;
 CREATE INDEX idx_extrato_transacao_categoria ON extrato_transacao (categoria_confirmada) WHERE categoria_confirmada IS NULL;
+
+-- Trigger para atualizar updated_at automaticamente
+CREATE OR REPLACE FUNCTION update_extrato_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_extrato_transacao_updated_at
+BEFORE UPDATE ON extrato_transacao
+FOR EACH ROW EXECUTE FUNCTION update_extrato_updated_at();
 ```
 
 ### Tabela: `extrato_regra_custom`
