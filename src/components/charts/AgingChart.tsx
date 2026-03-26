@@ -10,7 +10,8 @@ import {
 } from 'recharts';
 import type { ContasVencer } from '../../types/financial';
 
-function formatBRL(value: number): string {
+function formatBRL(value: number | null | undefined): string {
+  if (value == null) return 'R$ 0,00'
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 

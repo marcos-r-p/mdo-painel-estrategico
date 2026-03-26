@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import type { MargemProduto, MargemCanal } from '../../types/financial';
 
-function formatBRL(value: number): string {
+function formatBRL(value: number | null | undefined): string {
+  if (value == null) return 'R$ 0,00'
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
@@ -138,7 +139,7 @@ export default function MargemTable({ data, type }: MargemTableProps) {
             >
               <td className={tdClass}>{item.canal}</td>
               <td className={tdClass}>{formatBRL(item.receita)}</td>
-              <td className={tdClass}>{item.qtd_documentos.toLocaleString('pt-BR')}</td>
+              <td className={tdClass}>{(item.qtd_documentos ?? 0).toLocaleString('pt-BR')}</td>
               <td className={tdClass}>
                 <span
                   className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${marginColor(item.margem_percentual)} ${marginBadgeBg(item.margem_percentual)}`}

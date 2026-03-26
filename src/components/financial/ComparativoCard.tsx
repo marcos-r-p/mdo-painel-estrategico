@@ -8,11 +8,13 @@ const METRIC_LABELS: Record<string, string> = {
   qtd_vendas: 'Qtd. Vendas',
 };
 
-function formatBRL(value: number): string {
+function formatBRL(value: number | null | undefined): string {
+  if (value == null) return 'R$ 0,00'
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function formatValue(metrica: string, value: number): string {
+function formatValue(metrica: string, value: number | null | undefined): string {
+  if (value == null) return '0'
   if (metrica === 'qtd_vendas') return value.toLocaleString('pt-BR');
   return formatBRL(value);
 }
