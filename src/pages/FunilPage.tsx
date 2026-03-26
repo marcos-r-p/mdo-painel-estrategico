@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import Spinner from '../components/ui/Spinner'
+import DetailModal from '../components/ui/DetailModal'
+import { fetchCohortDetail, type CohortClient } from '../services/api/cohort-detail'
 import {
   useShopifyVendasMensal, useShopifyRecorrencia,
   useShopifyProdutosRank, useShopifyCohort,
@@ -197,7 +199,7 @@ function SecaoRecorrencia({ data }: { data: RecorrenciaRow[] }) {
             contentStyle={TOOLTIP_STYLE}
             formatter={(value: number, name: string) => {
               if (name === 'taxa_recompra') return [formatPercent(value), 'Taxa Recompra']
-              return [formatNumber(value), name === 'clientes_novos' ? 'Novos' : 'Recorrentes']
+              return [formatNumber(value), name]
             }}
           />
           <Legend />
@@ -286,12 +288,27 @@ function SecaoProdutos({ data }: { data: ShopifyProdutoRank[] }) {
   )
 }
 
+// ─── Cohort heatmap color helper ─────────────────────────────
+function cohortCellStyle(retention: number, isBaseline: boolean): { bg: string; text: string } {
+  if (isBaseline) return { bg: 'bg-emerald-600', text: 'text-white' }
+  if (retention >= 0.15) return { bg: 'bg-emerald-500', text: 'text-white' }
+  if (retention >= 0.10) return { bg: 'bg-emerald-400', text: 'text-white' }
+  if (retention >= 0.05) return { bg: 'bg-emerald-300', text: 'text-emerald-900' }
+  if (retention >= 0.02) return { bg: 'bg-emerald-200', text: 'text-emerald-800' }
+  if (retention > 0) return { bg: 'bg-emerald-100', text: 'text-emerald-700' }
+  return { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-400' }
+}
+
 // ─── Section 5: Cohort Heatmap ───────────────────────────────
 function SecaoCohort({ data }: { data: ShopifyCohort[] }) {
-  const { cohortMonths, purchaseOffsets, matrix, baselines } = useMemo(() => {
-    if (data.length === 0) return { cohortMonths: [], purchaseOffsets: [], matrix: new Map(), baselines: new Map() }
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalTitle, setModalTitle] = useState('')
+  const [modalClients, setModalClients] = useState<CohortClient[]>([])
+  const [modalLoading, setModalLoading] = useState(false)
 
-    // Group by cohort_mes
+  const { cohortMonths, purchaseOffsets, matrix, baselines, mesCompraMap } = useMemo(() => {
+    if (data.length === 0) return { cohortMonths: [], purchaseOffsets: [], matrix: new Map(), baselines: new Map(), mesCompraMap: new Map() }
+
     const grouped = new Map<string, ShopifyCohort[]>()
     for (const row of data) {
       const arr = grouped.get(row.cohort_mes) || []
@@ -301,27 +318,56 @@ function SecaoCohort({ data }: { data: ShopifyCohort[] }) {
 
     const sortedCohorts = [...grouped.keys()].sort()
 
-    // For each cohort, compute month offsets
     let maxOffset = 0
-    const mat = new Map<string, Map<number, number>>() // cohort -> offset -> clientes
-    const bases = new Map<string, number>() // cohort -> month-0 clientes
+    const mat = new Map<string, Map<number, number>>()
+    const bases = new Map<string, number>()
+    const mesMap = new Map<string, Map<number, string>>() // cohort -> offset -> mes_compra
 
     for (const cohort of sortedCohorts) {
       const rows = grouped.get(cohort)!.sort((a, b) => a.mes_compra.localeCompare(b.mes_compra))
       const offsetMap = new Map<number, number>()
+      const offsetMes = new Map<number, string>()
 
       for (let i = 0; i < rows.length; i++) {
         offsetMap.set(i, rows[i].clientes)
+        offsetMes.set(i, rows[i].mes_compra)
       }
 
       bases.set(cohort, rows[0]?.clientes ?? 0)
       mat.set(cohort, offsetMap)
+      mesMap.set(cohort, offsetMes)
       if (rows.length - 1 > maxOffset) maxOffset = rows.length - 1
     }
 
     const offsets = Array.from({ length: maxOffset + 1 }, (_, i) => i)
-    return { cohortMonths: sortedCohorts, purchaseOffsets: offsets, matrix: mat, baselines: bases }
+    return { cohortMonths: sortedCohorts, purchaseOffsets: offsets, matrix: mat, baselines: bases, mesCompraMap: mesMap }
   }, [data])
+
+  const handleCellClick = useCallback(async (cohortMes: string, offset: number) => {
+    const mesCompra = mesCompraMap.get(cohortMes)?.get(offset)
+    if (!mesCompra) return
+
+    const baseline = baselines.get(cohortMes) ?? 0
+    const clientes = matrix.get(cohortMes)?.get(offset) ?? 0
+    const retention = baseline > 0 ? ((clientes / baseline) * 100).toFixed(0) : '0'
+    const label = offset === 0
+      ? `Cohort ${formatMesLabel(cohortMes)} — ${formatNumber(clientes)} clientes`
+      : `Cohort ${formatMesLabel(cohortMes)} → ${formatMesLabel(mesCompra)} (${retention}% retencao)`
+
+    setModalTitle(label)
+    setModalClients([])
+    setModalLoading(true)
+    setModalOpen(true)
+
+    try {
+      const clients = await fetchCohortDetail(cohortMes, mesCompra)
+      setModalClients(clients)
+    } catch {
+      setModalClients([])
+    } finally {
+      setModalLoading(false)
+    }
+  }, [mesCompraMap, baselines, matrix])
 
   if (cohortMonths.length === 0) {
     return (
@@ -334,12 +380,12 @@ function SecaoCohort({ data }: { data: ShopifyCohort[] }) {
   return (
     <Card title="Cohort de Retencao">
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-xs border-separate" style={{ borderSpacing: '2px' }}>
           <thead>
             <tr>
-              <th className="py-2 px-2 text-left text-gray-500 dark:text-gray-400 font-semibold">Cohort</th>
+              <th className="py-2 px-2 text-left text-gray-500 dark:text-gray-400 font-semibold sticky left-0 bg-white dark:bg-gray-800 z-10">Cohort</th>
               {purchaseOffsets.map((off) => (
-                <th key={off} className="py-2 px-2 text-center text-gray-500 dark:text-gray-400 font-semibold">
+                <th key={off} className="py-2 px-2 text-center text-gray-500 dark:text-gray-400 font-semibold min-w-[44px]">
                   M{off}
                 </th>
               ))}
@@ -352,25 +398,28 @@ function SecaoCohort({ data }: { data: ShopifyCohort[] }) {
 
               return (
                 <tr key={cohort}>
-                  <td className="py-1.5 px-2 text-gray-600 dark:text-gray-300 font-mono whitespace-nowrap">
+                  <td className="py-1 px-2 text-gray-600 dark:text-gray-300 font-mono whitespace-nowrap sticky left-0 bg-white dark:bg-gray-800 z-10">
                     {formatMesLabel(cohort)}
                   </td>
                   {purchaseOffsets.map((off) => {
                     const clientes = offsetMap.get(off)
                     if (clientes == null) {
-                      return <td key={off} className="py-1.5 px-2" />
+                      return <td key={off} className="py-1 px-1" />
                     }
+                    const isBaseline = off === 0
                     const retention = baseline > 0 ? clientes / baseline : 0
-                    const pctLabel = off === 0 ? formatNumber(clientes) : `${(retention * 100).toFixed(0)}%`
+                    const pctLabel = isBaseline ? formatNumber(clientes) : `${(retention * 100).toFixed(0)}%`
+                    const style = cohortCellStyle(retention, isBaseline)
 
                     return (
-                      <td key={off} className="py-1.5 px-2 text-center">
-                        <div
-                          className="rounded px-1.5 py-1 text-white font-medium bg-emerald-500"
-                          style={{ opacity: off === 0 ? 1 : Math.max(retention, 0.1) }}
+                      <td key={off} className="py-1 px-1 text-center">
+                        <button
+                          onClick={() => handleCellClick(cohort, off)}
+                          className={`w-full rounded px-1 py-1 font-medium cursor-pointer transition-transform hover:scale-110 hover:shadow-md ${style.bg} ${style.text}`}
+                          title={`${formatMesLabel(cohort)} → M${off}: ${clientes} clientes`}
                         >
                           {pctLabel}
-                        </div>
+                        </button>
                       </td>
                     )
                   })}
@@ -380,6 +429,60 @@ function SecaoCohort({ data }: { data: ShopifyCohort[] }) {
           </tbody>
         </table>
       </div>
+
+      <DetailModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalTitle}
+      >
+        {modalLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Spinner />
+          </div>
+        ) : modalClients.length === 0 ? (
+          <p className="text-sm text-gray-400 py-8 text-center">Nenhum cliente encontrado para este cohort.</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              {modalClients.length} cliente{modalClients.length > 1 ? 's' : ''} encontrado{modalClients.length > 1 ? 's' : ''}
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700 text-xs uppercase text-gray-500 dark:text-gray-400">
+                    <th className="py-2 pr-3 text-left">Cliente</th>
+                    <th className="py-2 pr-3 text-left">Email</th>
+                    <th className="py-2 pr-3 text-center">UF</th>
+                    <th className="py-2 pr-3 text-right">Pedidos</th>
+                    <th className="py-2 text-right">Receita</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modalClients.map((c, i) => (
+                    <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+                      <td className="py-2 pr-3 text-gray-700 dark:text-gray-300 font-medium truncate max-w-[160px]">
+                        {c.nome_cliente || '\u2014'}
+                      </td>
+                      <td className="py-2 pr-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[180px]">
+                        {c.email || '\u2014'}
+                      </td>
+                      <td className="py-2 pr-3 text-center text-gray-500 dark:text-gray-400">
+                        {c.uf || '\u2014'}
+                      </td>
+                      <td className="py-2 pr-3 text-right text-gray-700 dark:text-gray-300">
+                        {c.pedidos}
+                      </td>
+                      <td className="py-2 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(c.receita)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </DetailModal>
     </Card>
   )
 }

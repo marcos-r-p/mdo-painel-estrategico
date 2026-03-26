@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import Spinner from '../ui/Spinner'
+import PageHeader from '../ui/PageHeader'
 import { usePageTracking } from '../../hooks/usePageTracking'
 
 export default function AppLayout() {
@@ -22,6 +23,7 @@ export default function AppLayout() {
         <Header onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
         <main id="main-content" className="flex-1 w-full" tabIndex={-1}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <PageHeader />
             <Suspense fallback={<Spinner />}>
               <Outlet />
             </Suspense>

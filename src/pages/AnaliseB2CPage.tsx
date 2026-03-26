@@ -4,15 +4,9 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
-import DateRangePicker from '../components/ui/DateRangePicker'
 import KPICard from '../components/ui/KPICard'
 import PieChart from '../components/charts/PieChart'
 import DetailModal from '../components/ui/DetailModal'
-
-interface DateRange {
-  dataIni: string
-  dataFim: string
-}
 
 interface SubTab {
   key: string
@@ -55,7 +49,6 @@ export default function AnaliseB2CPage() {
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
 
-  const [range, setRange] = useState<DateRange>({ dataIni: '', dataFim: '' })
   const [activeTab, setActiveTab] = useState<string>('perfil')
   const [modalCliente, setModalCliente] = useState<ClienteBase | null>(null)
 
@@ -115,7 +108,6 @@ export default function AnaliseB2CPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
           Analise B2C
@@ -123,7 +115,6 @@ export default function AnaliseB2CPage() {
             <span className="ml-2 text-sm font-normal text-gray-500">({fonteAtiva})</span>
           )}
         </h2>
-        <DateRangePicker dataIni={range.dataIni} dataFim={range.dataFim} onChange={setRange} />
       </div>
 
       {/* Sub-tabs */}

@@ -32,18 +32,20 @@ export default function ShopifyPage() {
     if (!shopifyData?.pedidos) return []
     return (shopifyData.pedidos as ShopifyPedido[])
       .filter((p) => {
-        if (!p.data_pedido) return true
-        return p.data_pedido >= dataIni && p.data_pedido <= dataFim
+        if (!p.data) return false
+        const d = p.data.slice(0, 10)
+        return d >= dataIni && d <= dataFim
       })
-      .sort((a, b) => (b.data_pedido || '').localeCompare(a.data_pedido || ''))
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''))
       .slice(0, 20)
   }, [shopifyData, dataIni, dataFim])
 
   // KPIs from filtered pedidos
   const kpis = useMemo(() => {
     const allFiltered = (shopifyData?.pedidos as ShopifyPedido[] || []).filter((p) => {
-      if (!p.data_pedido) return true
-      return p.data_pedido >= dataIni && p.data_pedido <= dataFim
+      if (!p.data) return false
+      const d = p.data.slice(0, 10)
+      return d >= dataIni && d <= dataFim
     })
     const total = allFiltered.length
     const receita = allFiltered.reduce((s, p) => s + (Number(p.valor_total) || 0), 0)
@@ -51,7 +53,7 @@ export default function ShopifyPage() {
     return {
       pedidos: total,
       receita,
-      clientes: new Set(allFiltered.map((p) => p.nome_cliente || '')).size,
+      clientes: new Set(allFiltered.map((p) => p.cliente_nome || '')).size,
       produtos: shopifyData?.produtos?.length || 0,
       ticket,
     }
@@ -62,15 +64,16 @@ export default function ShopifyPage() {
     if (!shopifyData?.pedidos) return []
     const map: Record<string, { uf: string; total_pedidos: number; receita: number; clientes: Set<string> }> = {}
     const allFiltered = (shopifyData.pedidos as ShopifyPedido[]).filter((p) => {
-      if (!p.data_pedido) return true
-      return p.data_pedido >= dataIni && p.data_pedido <= dataFim
+      if (!p.data) return false
+      const d = p.data.slice(0, 10)
+      return d >= dataIni && d <= dataFim
     })
     allFiltered.forEach((p) => {
       const uf = (p.uf || '?') as string
       if (!map[uf]) map[uf] = { uf, total_pedidos: 0, receita: 0, clientes: new Set() }
       map[uf].total_pedidos++
       map[uf].receita += Number(p.valor_total) || 0
-      map[uf].clientes.add((p.nome_cliente || '') as string)
+      map[uf].clientes.add((p.cliente_nome || '') as string)
     })
     return Object.values(map)
       .map((e) => ({ ...e, clientes: e.clientes.size }))
@@ -173,13 +176,13 @@ export default function ShopifyPage() {
                   className="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/50"
                 >
                   <td className="px-3 py-2 font-medium text-gray-700 dark:text-gray-300">
-                    {p.numero || p.shopify_id || '\u2014'}
+                    {p.numero || '\u2014'}
                   </td>
                   <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
-                    {p.data_pedido ? new Date(p.data_pedido).toLocaleDateString('pt-BR') : '\u2014'}
+                    {p.data ? new Date(p.data).toLocaleDateString('pt-BR') : '\u2014'}
                   </td>
                   <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-                    {p.nome_cliente || '\u2014'}
+                    {p.cliente_nome || '\u2014'}
                   </td>
                   <td className="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300">
                     {formatCurrency(p.valor_total || 0)}

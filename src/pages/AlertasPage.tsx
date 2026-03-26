@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { DADOS } from '../data/seed';
 import type { Alerta, AlertTipo, PlanoAcao } from '../types/domain';
 import SectionCard from '../components/ui/SectionCard';
-import DateRangePicker from '../components/ui/DateRangePicker';
 import Badge from '../components/ui/Badge';
 
 interface TipoConfig {
@@ -125,17 +123,10 @@ const descobertas: Descoberta[] = [
 ];
 
 
-interface DateRange {
-  dataIni: string;
-  dataFim: string;
-}
-
 export default function AlertasPage() {
   useDocumentTitle('Alertas');
   const [searchParams] = useSearchParams();
   const fonteAtiva: string | null = searchParams.get('fonte');
-
-  const [range, setRange] = useState<DateRange>({ dataIni: '', dataFim: '' });
 
   const alertas: Alerta[] = DADOS.alertas;
 
@@ -153,7 +144,6 @@ export default function AlertasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header + Date Range */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
           Alertas e Plano de Acao
@@ -161,7 +151,6 @@ export default function AlertasPage() {
             <span className="ml-2 text-sm font-normal text-gray-500">({fonteAtiva})</span>
           )}
         </h2>
-        <DateRangePicker dataIni={range.dataIni} dataFim={range.dataFim} onChange={setRange} />
       </div>
 
       {/* Alert Groups */}

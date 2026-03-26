@@ -22,6 +22,7 @@ const FunilPage = lazy(() => import('../pages/FunilPage'))
 const AnaliseIAPage = lazy(() => import('../pages/AnaliseIAPage'))
 const MetasPage = lazy(() => import('../pages/MetasPage'))
 const AlertasPage = lazy(() => import('../pages/AlertasPage'))
+const SaudeEcommercePage = lazy(() => import('../pages/SaudeEcommercePage'))
 const ResetPasswordPage = lazy(() => import('../pages/ResetPasswordPage'))
 const UsuariosPage = lazy(() => import('../pages/admin/UsuariosPage'))
 const RolesPage = lazy(() => import('../pages/admin/RolesPage'))
@@ -143,6 +144,7 @@ export const router = createBrowserRouter([
       { path: 'analise-ia', element: <PageGuard pageKey="analise-ia"><AnaliseIAPage /></PageGuard> },
       { path: 'metas', element: <PageGuard pageKey="metas"><MetasPage /></PageGuard> },
       { path: 'alertas', element: <PageGuard pageKey="alertas"><AlertasPage /></PageGuard> },
+      { path: 'saude-ecommerce', element: <PageGuard pageKey="saude-ecommerce"><SaudeEcommercePage /></PageGuard> },
       {
         path: 'admin',
         element: <AdminGuard><Outlet /></AdminGuard>,

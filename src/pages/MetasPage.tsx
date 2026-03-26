@@ -1,19 +1,12 @@
-import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
-import DateRangePicker from '../components/ui/DateRangePicker'
 import ProgressBar from '../components/ui/ProgressBar'
 import Badge from '../components/ui/Badge'
 
 // ─── Types ───
-interface DateRange {
-  dataIni: string
-  dataFim: string
-}
-
 interface KPI {
   metrica: string
   atual: number
@@ -49,8 +42,6 @@ export default function MetasPage() {
   useDocumentTitle('Metas')
   const [searchParams] = useSearchParams()
   const _fonteAtiva = searchParams.get('fonte')
-
-  const [dateRange, setDateRange] = useState<DateRange>({ dataIni: '', dataFim: '' })
 
   const metas = DADOS.metas || ({} as Record<string, Fase>)
   const tarefas = (DADOS.tarefas || []) as Tarefa[]
@@ -123,16 +114,10 @@ export default function MetasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header + DateRangePicker */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Metas &amp; Planejamento
         </h2>
-        <DateRangePicker
-          dataIni={dateRange.dataIni}
-          dataFim={dateRange.dataFim}
-          onChange={setDateRange}
-        />
       </div>
 
       {/* 3 Phase Cards */}

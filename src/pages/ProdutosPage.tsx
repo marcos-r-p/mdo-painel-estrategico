@@ -4,16 +4,10 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
-import DateRangePicker from '../components/ui/DateRangePicker'
 import ProgressBar from '../components/ui/ProgressBar'
 import KPICard from '../components/ui/KPICard'
 import PieChart from '../components/charts/PieChart'
 import DetailModal from '../components/ui/DetailModal'
-
-interface DateRange {
-  dataIni: string
-  dataFim: string
-}
 
 interface EstoqueInfo {
   sku: string
@@ -40,7 +34,6 @@ export default function ProdutosPage() {
   const [searchParams] = useSearchParams()
   const _fonteAtiva = searchParams.get('fonte')
 
-  const [dateRange, setDateRange] = useState<DateRange>({ dataIni: '', dataFim: '' })
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null)
 
   const categorias = DADOS.categorias || []
@@ -68,16 +61,10 @@ export default function ProdutosPage() {
 
   return (
     <div className="space-y-6">
-      {/* Date Range Picker */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Produtos &amp; Estoque
         </h2>
-        <DateRangePicker
-          dataIni={dateRange.dataIni}
-          dataFim={dateRange.dataFim}
-          onChange={setDateRange}
-        />
       </div>
 
       {/* Top 20 Produtos */}

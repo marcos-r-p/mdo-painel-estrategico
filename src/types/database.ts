@@ -40,22 +40,25 @@ export interface VwUfMensal {
 
 export interface ShopifyPedido {
   id: number;
-  shopify_id: string;
   numero: string | null;
-  email: string | null;
-  nome_cliente: string | null;
+  data: string | null;
+  cliente_email: string | null;
+  cliente_nome: string | null;
   valor_total: number;
   subtotal: number;
   frete: number | null;
   desconto: number | null;
+  impostos: number | null;
   status_financeiro: string | null;
   status_fulfillment: string | null;
-  data_pedido: string;
-  data_criacao: string;
+  canal: string | null;
+  gateway_pagamento: string | null;
   uf: string | null;
   cidade: string | null;
-  canal: string | null;
+  pais: string | null;
   itens: Array<{ sku: string; titulo: string; quantidade: number; preco: number }> | null;
+  tags: string | null;
+  nota: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -13,8 +13,20 @@ function json(data: unknown, status = 200) {
   });
 }
 
-/** Delay helper for rate limiting */
+const MAX_PAGES = 50;
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function getLastSync(supabase: any, tipo: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("bling_sync_log")
+    .select("created_at")
+    .eq("tipo", tipo)
+    .eq("status", "sucesso")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.created_at ?? null;
+}
 
 async function getBlingToken(supabase: any) {
   const { data: tokenRow } = await supabase
@@ -23,14 +35,12 @@ async function getBlingToken(supabase: any) {
     .eq("id", 1)
     .single();
 
-  if (!tokenRow?.access_token) throw new Error("Bling não conectado");
+  if (!tokenRow?.access_token) throw new Error("Bling nao conectado");
 
-  // Check if token is expired
   if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
-    // Refresh the token
     const clientId = Deno.env.get("BLING_CLIENT_ID");
     const clientSecret = Deno.env.get("BLING_CLIENT_SECRET");
-    if (!clientId || !clientSecret) throw new Error("BLING_CLIENT_ID/SECRET não configurados");
+    if (!clientId || !clientSecret) throw new Error("BLING_CLIENT_ID/SECRET nao configurados");
 
     const res = await fetch("https://www.bling.com.br/Api/v3/oauth/token", {
       method: "POST",
@@ -41,7 +51,7 @@ async function getBlingToken(supabase: any) {
       body: `grant_type=refresh_token&refresh_token=${tokenRow.refresh_token}`,
     });
 
-    if (!res.ok) throw new Error(`Bling refresh token falhou: ${res.status}`);
+    if (!res.ok) throw new Error(`Bling refresh falhou: ${res.status}`);
     const tokens = await res.json();
 
     const expiresAt = new Date();
@@ -60,7 +70,6 @@ async function getBlingToken(supabase: any) {
   return tokenRow.access_token;
 }
 
-/** Bling API v3 rate limit: ~3 req/s. We retry on 429 with exponential backoff. */
 async function blingFetch(path: string, token: string, retries = 3): Promise<any> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const res = await fetch(`https://www.bling.com.br/Api/v3${path}`, {
@@ -69,9 +78,8 @@ async function blingFetch(path: string, token: string, retries = 3): Promise<any
 
     if (res.status === 429) {
       if (attempt === retries) {
-        throw new Error(`Bling API ${path}: 429 - Rate limit excedido após ${retries} tentativas`);
+        throw new Error(`Bling API ${path}: 429 - Rate limit apos ${retries} tentativas`);
       }
-      // Exponential backoff: 1s, 2s, 4s
       const backoff = Math.pow(2, attempt) * 1000;
       console.log(`Bling 429 on ${path}, retry ${attempt + 1} after ${backoff}ms`);
       await delay(backoff);
@@ -92,6 +100,7 @@ Deno.serve(async (req: Request) => {
   try {
     const url = new URL(req.url);
     const tipo = url.searchParams.get("tipo") ?? "contatos";
+    const mode = url.searchParams.get("mode") ?? "full";
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -101,14 +110,26 @@ Deno.serve(async (req: Request) => {
     const token = await getBlingToken(supabase);
     const sincronizados: Record<string, number> = {};
 
+    // Incremental: filter by dataAlteracao if we have a last sync date
+    let sinceParam = "";
+    if (mode === "incremental") {
+      const lastSync = await getLastSync(supabase, tipo);
+      if (lastSync) {
+        const d = new Date(lastSync);
+        sinceParam = `&dataAlteracaoInicial=${d.toISOString().split("T")[0]}`;
+      } else {
+        const d = new Date(); d.setDate(d.getDate() - 7);
+        sinceParam = `&dataAlteracaoInicial=${d.toISOString().split("T")[0]}`;
+      }
+    }
+
     if (tipo === "contatos") {
       let page = 1;
       let total = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const data = await blingFetch(`/contatos?pagina=${page}&limite=100`, token);
+      while (page <= MAX_PAGES) {
+        const data = await blingFetch(`/contatos?pagina=${page}&limite=100${sinceParam}`, token);
         const contatos = data.data ?? [];
-        if (contatos.length === 0) { hasMore = false; break; }
+        if (contatos.length === 0) break;
 
         const rows = contatos.map((c: any) => ({
           nome: c.nome,
@@ -123,9 +144,8 @@ Deno.serve(async (req: Request) => {
         await supabase.from("clientes").insert(rows);
         total += rows.length;
         page++;
-        if (contatos.length < 100) hasMore = false;
-        // Rate limit: wait 500ms between pages
-        if (hasMore) await delay(500);
+        if (contatos.length < 100) break;
+        if (page <= MAX_PAGES) await delay(350);
       }
       sincronizados.contatos = total;
     }
@@ -133,11 +153,10 @@ Deno.serve(async (req: Request) => {
     if (tipo === "produtos") {
       let page = 1;
       let total = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const data = await blingFetch(`/produtos?pagina=${page}&limite=100`, token);
+      while (page <= MAX_PAGES) {
+        const data = await blingFetch(`/produtos?pagina=${page}&limite=100${sinceParam}`, token);
         const produtos = data.data ?? [];
-        if (produtos.length === 0) { hasMore = false; break; }
+        if (produtos.length === 0) break;
 
         const rows = produtos.map((p: any) => ({
           sku: p.codigo,
@@ -152,8 +171,8 @@ Deno.serve(async (req: Request) => {
         await supabase.from("produtos").upsert(rows, { onConflict: "sku" });
         total += rows.length;
         page++;
-        if (produtos.length < 100) hasMore = false;
-        if (hasMore) await delay(500);
+        if (produtos.length < 100) break;
+        if (page <= MAX_PAGES) await delay(350);
       }
       sincronizados.produtos = total;
     }
@@ -161,11 +180,10 @@ Deno.serve(async (req: Request) => {
     if (tipo === "pedidos") {
       let page = 1;
       let total = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const data = await blingFetch(`/pedidos/vendas?pagina=${page}&limite=100`, token);
+      while (page <= MAX_PAGES) {
+        const data = await blingFetch(`/pedidos/vendas?pagina=${page}&limite=100${sinceParam}`, token);
         const pedidos = data.data ?? [];
-        if (pedidos.length === 0) { hasMore = false; break; }
+        if (pedidos.length === 0) break;
 
         const rows = pedidos.map((p: any) => ({
           id: p.id,
@@ -183,8 +201,8 @@ Deno.serve(async (req: Request) => {
         await supabase.from("pedidos").upsert(rows, { onConflict: "id" });
         total += rows.length;
         page++;
-        if (pedidos.length < 100) hasMore = false;
-        if (hasMore) await delay(500);
+        if (pedidos.length < 100) break;
+        if (page <= MAX_PAGES) await delay(350);
       }
       sincronizados.pedidos = total;
     }
@@ -192,11 +210,7 @@ Deno.serve(async (req: Request) => {
     if (tipo === "financeiro") {
       const steps: Array<{ step: string; status: string; registros: number; duracao_ms: number; erro?: string }> = [];
 
-      // --- Helper: run a financial sync step with retry (1 retry on failure) ---
-      async function runFinancialStep(
-        stepName: string,
-        fn: () => Promise<number>,
-      ) {
+      async function runFinancialStep(stepName: string, fn: () => Promise<number>) {
         const t0 = Date.now();
         for (let attempt = 0; attempt < 2; attempt++) {
           try {
@@ -210,27 +224,13 @@ Deno.serve(async (req: Request) => {
               console.log(`[financeiro] ${stepName} falhou (tentativa 1), retrying: ${errorMsg}`);
               continue;
             }
-            console.error(`[financeiro] ${stepName} falhou após 2 tentativas: ${errorMsg}`);
+            console.error(`[financeiro] ${stepName} falhou apos 2 tentativas: ${errorMsg}`);
             steps.push({ step: stepName, status: "erro", registros: 0, duracao_ms: Date.now() - t0, erro: errorMsg });
             sincronizados[stepName] = 0;
           }
         }
       }
 
-      // --- Helper: get last sync date for incremental sync ---
-      async function getLastSyncDate(_stepName: string): Promise<string | null> {
-        const { data: lastLog } = await supabase
-          .from("bling_sync_log")
-          .select("created_at")
-          .eq("tipo", "financeiro")
-          .eq("status", "sucesso")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        return lastLog?.created_at ?? null;
-      }
-
-      // --- Helper: paginated sync with upsert ---
       async function paginatedSync(
         endpoint: string,
         table: string,
@@ -239,34 +239,28 @@ Deno.serve(async (req: Request) => {
       ): Promise<number> {
         let page = 1;
         let total = 0;
-        let hasMore = true;
-
-        while (hasMore) {
+        while (page <= MAX_PAGES) {
           const separator = endpoint.includes("?") ? "&" : "?";
           const url = `${endpoint}${separator}pagina=${page}&limite=100${extraParams ? `&${extraParams}` : ""}`;
           const data = await blingFetch(url, token);
           const items = data.data ?? [];
-
-          if (items.length === 0) {
-            hasMore = false;
-            break;
-          }
+          if (items.length === 0) break;
 
           const rows = items.map((item: any) => mapRow(item));
-
-          await supabase.from(table).upsert(rows, { onConflict: "bling_id" });
+          const { error } = await supabase.from(table).upsert(rows, { onConflict: "bling_id" });
+          if (error) {
+            console.error(`[financeiro] upsert ${table} erro:`, error.message);
+            throw new Error(`Upsert ${table} falhou: ${error.message}`);
+          }
           total += rows.length;
           page++;
-
-          if (items.length < 100) hasMore = false;
-          // Rate limit: 350ms between calls (~3 req/s)
-          if (hasMore) await delay(350);
+          if (items.length < 100) break;
+          if (page <= MAX_PAGES) await delay(350);
         }
-
         return total;
       }
 
-      // 1. Sync Categorias (non-paginated endpoint)
+      // 1. Sync Categorias
       await runFinancialStep("categorias", async () => {
         const data = await blingFetch("/categorias/receitas-despesas", token);
         const items = data.data ?? [];
@@ -276,17 +270,17 @@ Deno.serve(async (req: Request) => {
           bling_id: c.id,
           descricao: c.descricao,
           tipo: c.tipo,
-          situacao: c.situacao,
           synced_at: new Date().toISOString(),
         }));
 
-        await supabase.from("bling_categorias").upsert(rows, { onConflict: "bling_id" });
+        const { error } = await supabase.from("bling_categorias").upsert(rows, { onConflict: "bling_id" });
+        if (error) throw new Error(`Upsert categorias falhou: ${error.message}`);
         return rows.length;
       });
 
-      // 2. Sync Contas a Receber (paginated, incremental)
+      // 2. Sync Contas a Receber
       await runFinancialStep("contas_receber", async () => {
-        const lastSync = await getLastSyncDate("contas_receber");
+        const lastSync = await getLastSync(supabase, "financeiro");
         const extraParams = lastSync ? `dataAlteracaoInicial=${lastSync.slice(0, 10)}` : undefined;
 
         return paginatedSync(
@@ -294,25 +288,27 @@ Deno.serve(async (req: Request) => {
           "bling_contas_receber",
           (item: any) => ({
             bling_id: item.id,
-            situacao: item.situacao,
-            vencimento: item.vencimento,
-            valor: item.valor,
-            contato_id: item.contato?.id,
-            contato_nome: item.contato?.nome,
-            numero_documento: item.numeroDocumento,
-            competencia: item.competencia,
-            historico: item.historico,
-            categoria_id: item.categoria?.id,
-            portador_id: item.portador?.id,
+            situacao: typeof item.situacao === "object" ? item.situacao?.valor : item.situacao,
+            data_vencimento: item.vencimento || null,
+            data_emissao: item.dataEmissao || item.competencia || null,
+            data_recebimento: item.dataRecebimento || null,
+            valor: item.valor ?? 0,
+            valor_recebido: item.valorRecebido ?? 0,
+            saldo: item.saldo ?? (item.valor ?? 0) - (item.valorRecebido ?? 0),
+            contato_id: item.contato?.id || null,
+            contato_nome: item.contato?.nome || null,
+            numero_documento: item.numeroDocumento || null,
+            categoria: item.categoria?.descricao || null,
+            historico: item.historico || null,
             synced_at: new Date().toISOString(),
           }),
           extraParams,
         );
       });
 
-      // 3. Sync Contas a Pagar (paginated, incremental)
+      // 3. Sync Contas a Pagar
       await runFinancialStep("contas_pagar", async () => {
-        const lastSync = await getLastSyncDate("contas_pagar");
+        const lastSync = await getLastSync(supabase, "financeiro");
         const extraParams = lastSync ? `dataAlteracaoInicial=${lastSync.slice(0, 10)}` : undefined;
 
         return paginatedSync(
@@ -320,25 +316,27 @@ Deno.serve(async (req: Request) => {
           "bling_contas_pagar",
           (item: any) => ({
             bling_id: item.id,
-            situacao: item.situacao,
-            vencimento: item.vencimento,
-            valor: item.valor,
-            contato_id: item.contato?.id,
-            contato_nome: item.contato?.nome,
-            numero_documento: item.numeroDocumento,
-            competencia: item.competencia,
-            historico: item.historico,
-            categoria_id: item.categoria?.id,
-            portador_id: item.portador?.id,
+            situacao: typeof item.situacao === "object" ? item.situacao?.valor : item.situacao,
+            data_vencimento: item.vencimento || null,
+            data_emissao: item.dataEmissao || item.competencia || null,
+            data_pagamento: item.dataPagamento || null,
+            valor: item.valor ?? 0,
+            valor_pago: item.valorPago ?? 0,
+            saldo: item.saldo ?? (item.valor ?? 0) - (item.valorPago ?? 0),
+            fornecedor_id: item.contato?.id || item.fornecedor?.id || null,
+            fornecedor_nome: item.contato?.nome || item.fornecedor?.nome || null,
+            numero_documento: item.numeroDocumento || null,
+            categoria: item.categoria?.descricao || null,
+            historico: item.historico || null,
             synced_at: new Date().toISOString(),
           }),
           extraParams,
         );
       });
 
-      // 4. Sync Pedidos de Compra (paginated, incremental)
+      // 4. Sync Pedidos de Compra
       await runFinancialStep("pedidos_compra", async () => {
-        const lastSync = await getLastSyncDate("pedidos_compra");
+        const lastSync = await getLastSync(supabase, "financeiro");
         const extraParams = lastSync ? `dataAlteracaoInicial=${lastSync.slice(0, 10)}` : undefined;
 
         return paginatedSync(
@@ -346,13 +344,14 @@ Deno.serve(async (req: Request) => {
           "bling_pedidos_compra",
           (item: any) => ({
             bling_id: item.id,
-            numero: item.numero,
-            data: item.data,
-            situacao: item.situacao?.valor,
-            fornecedor_id: item.fornecedor?.id,
-            fornecedor_nome: item.fornecedor?.nome,
-            valor_total: item.total,
-            observacoes: item.observacoes,
+            numero: item.numero?.toString() || null,
+            data_pedido: item.data || null,
+            situacao: typeof item.situacao === "object" ? item.situacao?.valor : item.situacao,
+            fornecedor_id: item.fornecedor?.id || item.contato?.id || null,
+            fornecedor_nome: item.fornecedor?.nome || item.contato?.nome || null,
+            valor_total: item.total ?? item.totalProdutos ?? 0,
+            valor_frete: item.transporte?.frete ?? 0,
+            valor_desconto: item.desconto ?? 0,
             synced_at: new Date().toISOString(),
           }),
           extraParams,
@@ -386,9 +385,10 @@ Deno.serve(async (req: Request) => {
       status: "sucesso",
     });
 
-    return json({ status: "ok", sincronizados });
+    return json({ status: "ok", mode, sincronizados });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error("[bling-sync] error:", message);
     return json({ status: "error", error: message }, 500);
   }
 });

@@ -1,25 +1,16 @@
-import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { DADOS } from '../data/seed'
 import { formatCurrency, formatNumber } from '../lib/formatters'
 import SectionCard from '../components/ui/SectionCard'
 import KPICard from '../components/ui/KPICard'
 import Badge from '../components/ui/Badge'
-import DateRangePicker from '../components/ui/DateRangePicker'
 import ProgressBar from '../components/ui/ProgressBar'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-
-interface DateRange {
-  dataIni: string
-  dataFim: string
-}
 
 export default function ClientesPage() {
   useDocumentTitle('Clientes')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
-
-  const [range, setRange] = useState<DateRange>({ dataIni: '', dataFim: '' })
 
   const topClientes = DADOS.topClientes || []
   const base = DADOS.baseClientesReal || ({} as Record<string, unknown>)
@@ -33,7 +24,6 @@ export default function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header + DateRangePicker */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
           Clientes
@@ -41,7 +31,6 @@ export default function ClientesPage() {
             <span className="ml-2 text-sm font-normal text-gray-500">({fonteAtiva})</span>
           )}
         </h2>
-        <DateRangePicker dataIni={range.dataIni} dataFim={range.dataFim} onChange={setRange} />
       </div>
 
       {/* KPIs */}

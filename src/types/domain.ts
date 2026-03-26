@@ -96,13 +96,21 @@ export interface CRMData {
 
 // ── Navigation ───────────────────────────────────────────────
 
-export interface NavigationSection {
+export interface NavigationItem {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   path: string;
   ariaLabel?: string;
 }
+
+export interface NavigationGroup {
+  groupLabel: string;
+  items: NavigationItem[];
+}
+
+/** Backwards-compatible alias */
+export type NavigationSection = NavigationItem;
 
 // ── Alertas ──────────────────────────────────────────────────
 
