@@ -5,6 +5,7 @@ import {
   fetchCrmFunil, fetchCrmEvolucao, fetchCrmPerdas,
   fetchCrmResponsaveis, fetchCrmOrigens, fetchCrmDealsParados,
 } from '../api/crm-views'
+import { fetchCrmFiltered } from '../api/crm-filtered'
 
 const STALE_TIME = 5 * 60 * 1000
 const GC_TIME = 30 * 60 * 1000
@@ -50,4 +51,15 @@ export function useCrmOrigens() {
 
 export function useCrmDealsParados() {
   return useQuery({ queryKey: ['crm', 'deals-parados'], queryFn: fetchCrmDealsParados, ...OPTS })
+}
+
+// ── Filtered CRM hook (date range) ───────────────────────────
+
+export function useCrmFiltered(dateFrom: string, dateTo: string) {
+  return useQuery({
+    queryKey: ['crm', 'filtered', dateFrom, dateTo],
+    queryFn: () => fetchCrmFiltered(dateFrom, dateTo),
+    ...OPTS,
+    enabled: !!dateFrom && !!dateTo,
+  })
 }
