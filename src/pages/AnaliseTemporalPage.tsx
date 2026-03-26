@@ -3,18 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { supabase } from '../services/supabase'
 import { formatCurrency, formatMesLabel } from '../lib/formatters'
+import { useResumoMensal } from '../services/queries/useDashboardQueries'
+import type { VwResumoMensal } from '../types/database'
 import SectionCard from '../components/ui/SectionCard'
 import ProgressBar from '../components/ui/ProgressBar'
 import Spinner from '../components/ui/Spinner'
 
 // ─── types ───
-interface ResumoMensal {
-  mes: string
-  receita: number
-  pedidos: number
-  ticket_medio: number
-  [key: string]: unknown
-}
+type ResumoMensal = VwResumoMensal
 
 interface UfData {
   uf: string
@@ -56,13 +52,7 @@ const fmtVar = (atual: number, anterior: number) => {
   }
 }
 
-interface AnaliseTemporalProps {
-  periodo?: {
-    resumoMensal?: ResumoMensal[]
-  }
-}
-
-export default function AnaliseTemporalPage({ periodo }: AnaliseTemporalProps = {}) {
+export default function AnaliseTemporalPage() {
   useDocumentTitle('Análise Temporal')
   const [searchParams] = useSearchParams()
   const fonteAtiva = searchParams.get('fonte')
@@ -72,7 +62,8 @@ export default function AnaliseTemporalPage({ periodo }: AnaliseTemporalProps = 
   const [ufs, setUfs] = useState<Record<string, UfData[]>>({})
   const [loadingUf, setLoadingUf] = useState<boolean>(false)
 
-  const resumo = periodo?.resumoMensal || []
+  const { data: resumoData, isLoading: resumoLoading, isError: resumoError } = useResumoMensal(fonteAtiva ?? 'bling')
+  const resumo: ResumoMensal[] = resumoData ?? []
 
   /* ─── Dados organizados por mes ─── */
   const meses = useMemo(() => {
@@ -207,14 +198,30 @@ export default function AnaliseTemporalPage({ periodo }: AnaliseTemporalProps = 
     return result
   }, [periodosDados])
 
-  /* ─── Loading state ─── */
-  if (!resumo.length) {
+  /* ─── Loading / error states ─── */
+  if (resumoLoading) {
     return (
       <div className="flex min-h-[300px] items-center justify-center">
         <div className="text-center">
           <Spinner />
           <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Carregando dados temporais...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (resumoError) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center">
+        <p className="text-sm text-red-500 dark:text-red-400">Erro ao carregar dados temporais. Tente novamente.</p>
+      </div>
+    )
+  }
+
+  if (!resumo.length) {
+    return (
+      <div className="flex min-h-[300px] items-center justify-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Nenhum dado disponível para o período selecionado.</p>
       </div>
     )
   }
