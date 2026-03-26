@@ -4,15 +4,18 @@ import type {
   CrmFunilPeriodo, CrmEvolucaoMensal, CrmDealParado,
   CrmResponsavel, CrmOrigem, CrmPerda,
 } from '../../types/crm'
-import type { CrmCanal, CrmLeadDiario } from '../../types/crm-filtered'
+import type {
+  CrmCanal, CrmLeadDiario, CrmFunilFiltered,
+  CrmEvolucaoFiltered, CrmResponsavelFiltered, CrmPerdaFiltered,
+} from '../../types/crm-filtered'
 
 interface CrmInsightInput {
-  funil: CrmFunilPeriodo[]
-  evolucao: CrmEvolucaoMensal[]
+  funil: (CrmFunilPeriodo | CrmFunilFiltered)[]
+  evolucao: (CrmEvolucaoMensal | CrmEvolucaoFiltered)[]
   dealsParados: CrmDealParado[]
-  responsaveis: CrmResponsavel[]
+  responsaveis: (CrmResponsavel | CrmResponsavelFiltered)[]
   origens: CrmOrigem[]
-  perdas: CrmPerda[]
+  perdas: (CrmPerda | CrmPerdaFiltered)[]
   canais?: CrmCanal[]
   leadsDiario?: CrmLeadDiario[]
 }
