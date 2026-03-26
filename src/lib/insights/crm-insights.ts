@@ -4,6 +4,7 @@ import type {
   CrmFunilPeriodo, CrmEvolucaoMensal, CrmDealParado,
   CrmResponsavel, CrmOrigem, CrmPerda,
 } from '../../types/crm'
+import type { CrmCanal, CrmLeadDiario } from '../../types/crm-filtered'
 
 interface CrmInsightInput {
   funil: CrmFunilPeriodo[]
@@ -12,6 +13,8 @@ interface CrmInsightInput {
   responsaveis: CrmResponsavel[]
   origens: CrmOrigem[]
   perdas: CrmPerda[]
+  canais?: CrmCanal[]
+  leadsDiario?: CrmLeadDiario[]
 }
 
 export function generateCrmInsights(input: CrmInsightInput): Insight[] {
@@ -86,17 +89,20 @@ export function generateCrmInsights(input: CrmInsightInput): Insight[] {
     }
   }
 
-  // Rule 5: Losses without reason > 30%
-  const semMotivo = input.perdas.find(p => p.motivo === 'Sem motivo')
-  if (semMotivo && semMotivo.percentual > 30) {
+  // Rule 5: Perdas sem motivo (updated — fires when array is empty OR all are "Sem motivo")
+  const allSemMotivo = input.perdas.length === 0 || input.perdas.every(p => p.motivo === 'Sem motivo')
+  if (allSemMotivo) {
+    const totalPerdas = input.perdas.reduce((a, p) => a + p.qtd, 0)
     insights.push({
       id: 'crm-perdas-sem-motivo',
       type: 'alerta',
       severity: 'atencao',
-      titulo: `${semMotivo.percentual}% perdas sem motivo`,
-      descricao: `${semMotivo.percentual}% das perdas nao tem motivo registrado (${semMotivo.qtd} deals).`,
-      metrica: { atual: semMotivo.percentual },
-      recomendacao: `${semMotivo.percentual}% das perdas sem motivo registrado, treinar equipe para documentar`,
+      titulo: 'Perdas sem motivo registrado',
+      descricao: totalPerdas > 0
+        ? `Nenhuma perda possui motivo registrado (${totalPerdas} deals perdidos).`
+        : 'Nenhum motivo de perda registrado no periodo.',
+      metrica: { atual: 100 },
+      recomendacao: 'Configure motivos de perda no RD Station para analisar por que os deals são perdidos',
       prioridade: 7,
     })
   }
@@ -122,6 +128,83 @@ export function generateCrmInsights(input: CrmInsightInput): Insight[] {
           prioridade: 5,
         })
       }
+    }
+  }
+
+  // Rule 7: Canal sem identificação (>80% leads)
+  if (input.canais && input.canais.length > 0) {
+    const totalLeads = input.canais.reduce((a, c) => a + c.total_leads, 0)
+    const semCanal = input.canais.find(c => c.canal === 'Sem canal definido')
+    if (semCanal && totalLeads > 0 && (semCanal.total_leads / totalLeads) * 100 > 80) {
+      const pct = Math.round((semCanal.total_leads / totalLeads) * 100)
+      insights.push({
+        id: 'crm-canal-sem-id',
+        type: 'alerta',
+        severity: 'critico',
+        titulo: `${pct}% dos leads sem canal`,
+        descricao: `${pct}% dos leads (${semCanal.total_leads} de ${totalLeads}) nao tem canal de origem identificado.`,
+        metrica: { atual: pct },
+        recomendacao: 'Configure UTMs obrigatorios no RD Station para rastrear ROI por canal',
+        prioridade: 9,
+      })
+    }
+
+    // Rule 8: Canal com alta conversão (>30%, >=5 leads, not "Sem canal definido")
+    for (const canal of input.canais) {
+      if (canal.canal !== 'Sem canal definido' && canal.taxa_conversao > 30 && canal.total_leads >= 5) {
+        insights.push({
+          id: `crm-canal-alta-conversao-${canal.canal}`,
+          type: 'oportunidade',
+          severity: 'info',
+          titulo: `${canal.canal} converte ${canal.taxa_conversao}%`,
+          descricao: `Canal "${canal.canal}" tem ${canal.taxa_conversao}% de conversao com ${canal.total_leads} leads.`,
+          metrica: { atual: canal.taxa_conversao },
+          recomendacao: `Canal ${canal.canal} converte ${canal.taxa_conversao}%, considerar investir mais`,
+          prioridade: 5,
+        })
+      }
+    }
+  }
+
+  // Rule 9: Dias sem leads (3+ consecutive calendar days without leads)
+  if (input.leadsDiario && input.leadsDiario.length >= 2) {
+    const sorted = [...input.leadsDiario].sort((a, b) => a.dia.localeCompare(b.dia))
+    let maxGap = 0
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = new Date(sorted[i - 1].dia)
+      const curr = new Date(sorted[i].dia)
+      const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24)) - 1
+      if (diffDays > maxGap) maxGap = diffDays
+    }
+    if (maxGap >= 3) {
+      insights.push({
+        id: 'crm-leads-gap',
+        type: 'alerta',
+        severity: 'atencao',
+        titulo: `${maxGap} dias sem leads`,
+        descricao: `Houve um periodo de ${maxGap} dias consecutivos sem nenhum lead no periodo selecionado.`,
+        metrica: { atual: maxGap },
+        recomendacao: `${maxGap} dias sem leads, verificar se campanhas estavam ativas`,
+        prioridade: 6,
+      })
+    }
+  }
+
+  // Rule 10: Pico de leads (dia com >2x a média)
+  if (input.leadsDiario && input.leadsDiario.length >= 3) {
+    const avg = input.leadsDiario.reduce((a, d) => a + d.leads, 0) / input.leadsDiario.length
+    const pico = input.leadsDiario.reduce((best, d) => d.leads > best.leads ? d : best, input.leadsDiario[0])
+    if (avg > 0 && pico.leads > avg * 2) {
+      insights.push({
+        id: 'crm-leads-pico',
+        type: 'tendencia',
+        severity: 'info',
+        titulo: `Pico: ${pico.leads} leads em ${pico.dia}`,
+        descricao: `Dia ${pico.dia} teve ${pico.leads} leads, mais de 2x a media de ${avg.toFixed(0)} leads/dia.`,
+        metrica: { atual: pico.leads, anterior: avg },
+        recomendacao: `Investigar o que causou o pico de ${pico.leads} leads em ${pico.dia}`,
+        prioridade: 3,
+      })
     }
   }
 

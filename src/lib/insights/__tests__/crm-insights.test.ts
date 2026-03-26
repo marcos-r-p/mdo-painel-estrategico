@@ -3,7 +3,7 @@ import { generateCrmInsights } from '../crm-insights'
 import type { CrmFunilPeriodo, CrmEvolucaoMensal, CrmDealParado, CrmResponsavel, CrmOrigem, CrmPerda } from '../../../types/crm'
 
 describe('generateCrmInsights', () => {
-  it('returns empty array when all data is empty', () => {
+  it('returns only perdas-sem-motivo alert when all data is empty (empty perdas triggers rule)', () => {
     const result = generateCrmInsights({
       funil: [],
       evolucao: [],
@@ -12,7 +12,8 @@ describe('generateCrmInsights', () => {
       origens: [],
       perdas: [],
     })
-    expect(result).toEqual([])
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('crm-perdas-sem-motivo')
   })
 
   it('generates critical alert for deals parados > 5', () => {
@@ -74,7 +75,22 @@ describe('generateCrmInsights', () => {
     expect(alert!.severity).toBe('atencao')
   })
 
-  it('generates alert for losses without reason > 30%', () => {
+  it('generates alert for losses without reason (all entries are "Sem motivo")', () => {
+    const perdas: CrmPerda[] = [
+      { motivo: 'Sem motivo', qtd: 40, valor_total: 40000, percentual: 100 },
+    ]
+
+    const result = generateCrmInsights({
+      funil: [], evolucao: [], dealsParados: [], responsaveis: [], origens: [], perdas,
+    })
+
+    const alert = result.find(i => i.id === 'crm-perdas-sem-motivo')
+    expect(alert).toBeDefined()
+    expect(alert!.severity).toBe('atencao')
+    expect(alert!.titulo).toBe('Perdas sem motivo registrado')
+  })
+
+  it('does NOT generate perdas alert when real motivos exist alongside "Sem motivo"', () => {
     const perdas: CrmPerda[] = [
       { motivo: 'Sem motivo', qtd: 40, valor_total: 40000, percentual: 40 },
       { motivo: 'Preco', qtd: 60, valor_total: 60000, percentual: 60 },
@@ -85,8 +101,7 @@ describe('generateCrmInsights', () => {
     })
 
     const alert = result.find(i => i.id === 'crm-perdas-sem-motivo')
-    expect(alert).toBeDefined()
-    expect(alert!.severity).toBe('atencao')
+    expect(alert).toBeUndefined()
   })
 
   it('generates opportunity when pipeline grows > 20%', () => {
