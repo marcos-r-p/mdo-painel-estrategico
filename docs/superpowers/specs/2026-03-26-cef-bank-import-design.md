@@ -25,7 +25,7 @@ O cliente não utiliza o Bling para gestão financeira completa — usa extratos
 - **NFR-2:** Parser OFX roda no browser — sem Edge Function para parsing
 - **NFR-3:** Conciliação roda como RPC function no Supabase (server-side)
 - **NFR-4:** Mesma arquitetura de materialized views do sistema Bling existente
-- **NFR-5:** RLS: authenticated = SELECT; service_role = full CRUD
+- **NFR-5:** RLS: authenticated = SELECT + INSERT + UPDATE (upload e revisão); service_role = full CRUD incluindo DELETE
 
 ### Restrições
 
@@ -74,8 +74,10 @@ CREATE TABLE extrato_transacao (
   categoria_sugerida text NOT NULL DEFAULT 'Não categorizado',
   categoria_confirmada text,
   conciliado boolean NOT NULL DEFAULT false,
+  dre_classificacao text,
   conciliacao_ref text,
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(fitid)
 );
 
@@ -115,6 +117,7 @@ CREATE POLICY "extrato_regra_select" ON extrato_regra_custom FOR SELECT TO authe
 
 -- Authenticated: INSERT/UPDATE (client uploads and reviews)
 CREATE POLICY "extrato_bancario_insert" ON extrato_bancario FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "extrato_bancario_delete" ON extrato_bancario FOR DELETE TO authenticated USING (true);
 CREATE POLICY "extrato_transacao_insert" ON extrato_transacao FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "extrato_transacao_update" ON extrato_transacao FOR UPDATE TO authenticated USING (true);
 CREATE POLICY "extrato_regra_insert" ON extrato_regra_custom FOR INSERT TO authenticated WITH CHECK (true);
@@ -127,7 +130,7 @@ CREATE POLICY "extrato_regra_update" ON extrato_regra_custom FOR UPDATE TO authe
 
 ### Biblioteca
 
-Usar `ofx-js` (npm) — parser OFX leve, browser-compatible, zero dependências server-side.
+Usar `ofx-js` ou `node-ofx-parser` (npm) — parser OFX browser-compatible. **Nota:** OFX brasileiro usa formato SGML, não XML. Validar que o parser escolhido suporta SGML antes de implementar. Se nenhum parser existente funcionar com SGML da CEF, implementar parser custom simples baseado em regex para extrair blocos `<STMTTRN>`.
 
 ### Campos extraídos do OFX
 
@@ -182,6 +185,8 @@ Aplicadas em ordem — primeiro match vence.
 
 **Fallback:** `categoria_sugerida = "Não categorizado"`, `dre_classificacao = null`
 
+**Nota sobre DRE:** Transações "Não categorizado" (`dre_classificacao = null`) são **excluídas** do DRE. A UI deve exibir um banner de alerta quando existirem transações não categorizadas: "X transações sem categoria — o DRE pode estar incompleto".
+
 ### Regras custom (tabela `extrato_regra_custom`)
 
 - Carregadas antes das regras padrão — **prioridade maior**
@@ -213,7 +218,7 @@ Executa server-side no Supabase.
 Para cada transação **não conciliada** e **não ignorada** do extrato:
 
 **Créditos (valor > 0):**
-1. Buscar em `shopify_pedidos` por `total_price = valor` AND `created_at` entre `data - 3 dias` e `data + 3 dias`
+1. Buscar em `shopify_pedidos` por `valor_total = valor` AND `data` entre `extrato.data - 3 dias` e `extrato.data + 3 dias`
 2. Se não encontrou → buscar em `bling_contas_receber` por `valor = valor` AND `data_vencimento` entre `data - 3 dias` e `data + 3 dias`
 3. Match único → `conciliado = true`, `conciliacao_ref = 'shopify:{order_id}'` ou `'bling_cr:{id}'`
 4. Match múltiplo → mantém pendente (revisão manual)
@@ -265,45 +270,52 @@ SELECT
   SUM(saldo_mes) OVER (ORDER BY ano_mes) AS saldo_acumulado
 FROM mensal
 ORDER BY ano_mes;
+
+CREATE UNIQUE INDEX ON mv_fluxo_caixa_extrato(ano_mes);
 ```
 
 ### `mv_dre_extrato`
 
-Mesma estrutura da `mv_dre_mensal` existente.
+Mesma estrutura da `mv_dre_mensal` existente. Usa `dre_classificacao` da `extrato_transacao` para mapear categorias para linhas DRE, garantindo compatibilidade com regras custom. Valores seguem a mesma convenção de sinal do Bling (positivos para receitas, negativos para deduções). Inclui linhas `cmv` e `lucro_bruto` com valor zero (extrato bancário não distingue CMV) para manter estrutura idêntica ao DRETable.
 
 ```sql
 CREATE MATERIALIZED VIEW mv_dre_extrato AS
-WITH categorizado AS (
+WITH por_mes AS (
   SELECT
     to_char(data, 'YYYY-MM') AS ano_mes,
-    valor,
-    COALESCE(categoria_confirmada, categoria_sugerida) AS categoria
+    SUM(CASE WHEN dre_classificacao = 'receita_bruta' THEN ABS(valor) ELSE 0 END) AS receita_bruta,
+    SUM(CASE WHEN dre_classificacao = 'impostos' THEN ABS(valor) ELSE 0 END) AS impostos,
+    SUM(CASE WHEN dre_classificacao = 'despesa_operacional' THEN ABS(valor) ELSE 0 END) AS despesas_operacionais,
+    SUM(CASE WHEN dre_classificacao = 'despesa_financeira' THEN ABS(valor) ELSE 0 END) AS despesas_financeiras
   FROM extrato_transacao
-  WHERE COALESCE(categoria_confirmada, categoria_sugerida) NOT IN ('Transferência Interna', 'Investimento')
-),
-por_mes AS (
-  SELECT
-    ano_mes,
-    SUM(CASE WHEN valor > 0 THEN valor ELSE 0 END) AS receita_bruta,
-    SUM(CASE WHEN categoria = 'Impostos' THEN ABS(valor) ELSE 0 END) AS impostos,
-    SUM(CASE WHEN categoria IN ('Folha de Pagamento', 'Aluguel/Ocupação', 'Utilidades', 'Telecom', 'Débito Automático', 'Não categorizado') AND valor < 0 THEN ABS(valor) ELSE 0 END) AS despesas_operacionais,
-    SUM(CASE WHEN categoria = 'Tarifa Bancária' AND valor < 0 THEN ABS(valor) ELSE 0 END) AS despesas_financeiras
-  FROM categorizado
-  GROUP BY ano_mes
+  WHERE dre_classificacao IS NOT NULL
+    AND COALESCE(categoria_confirmada, categoria_sugerida) NOT IN ('Transferência Interna', 'Investimento')
+  GROUP BY to_char(data, 'YYYY-MM')
 )
 SELECT ano_mes, 'receita_bruta' AS linha, receita_bruta AS valor FROM por_mes
 UNION ALL
-SELECT ano_mes, 'impostos', -impostos FROM por_mes
+SELECT ano_mes, 'impostos', impostos FROM por_mes
 UNION ALL
 SELECT ano_mes, 'receita_liquida', receita_bruta - impostos FROM por_mes
 UNION ALL
-SELECT ano_mes, 'despesas_operacionais', -despesas_operacionais FROM por_mes
+SELECT ano_mes, 'cmv', 0 FROM por_mes
+UNION ALL
+SELECT ano_mes, 'lucro_bruto', receita_bruta - impostos FROM por_mes
+UNION ALL
+SELECT ano_mes, 'despesas_operacionais', despesas_operacionais FROM por_mes
 UNION ALL
 SELECT ano_mes, 'resultado_operacional', receita_bruta - impostos - despesas_operacionais FROM por_mes
 UNION ALL
-SELECT ano_mes, 'despesas_financeiras', -despesas_financeiras FROM por_mes
+SELECT ano_mes, 'despesas_financeiras', despesas_financeiras FROM por_mes
 UNION ALL
 SELECT ano_mes, 'lucro_liquido', receita_bruta - impostos - despesas_operacionais - despesas_financeiras FROM por_mes
+UNION ALL
+SELECT ano_mes, 'margem_bruta_pct',
+  CASE WHEN receita_bruta > 0
+    THEN ((receita_bruta - impostos) / receita_bruta) * 100
+    ELSE 0
+  END
+FROM por_mes
 UNION ALL
 SELECT ano_mes, 'margem_liquida_pct',
   CASE WHEN receita_bruta > 0
@@ -312,7 +324,11 @@ SELECT ano_mes, 'margem_liquida_pct',
   END
 FROM por_mes
 ORDER BY ano_mes, linha;
+
+CREATE UNIQUE INDEX ON mv_dre_extrato(ano_mes, linha);
 ```
+
+**Nota:** O campo `dre_classificacao` na `extrato_transacao` é preenchido durante a categorização (tanto regras padrão quanto custom). Isso garante que regras custom com categorias novas sejam corretamente mapeadas no DRE sem hardcoding de nomes de categoria na view.
 
 ### `mv_conciliacao_resumo`
 
@@ -328,6 +344,53 @@ SELECT
 FROM extrato_transacao
 GROUP BY to_char(data, 'YYYY-MM')
 ORDER BY ano_mes;
+
+CREATE UNIQUE INDEX ON mv_conciliacao_resumo(ano_mes);
+```
+
+### RPC: `import_extrato(p_data jsonb)`
+
+Garante atomicidade — insere extrato + todas as transações numa única transaction. Se qualquer insert falhar, faz rollback completo.
+
+```sql
+CREATE OR REPLACE FUNCTION import_extrato(p_data jsonb)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_extrato_id uuid;
+  v_txn jsonb;
+BEGIN
+  INSERT INTO extrato_bancario (banco, conta, periodo_inicio, periodo_fim, arquivo_nome, qtd_transacoes)
+  VALUES (
+    p_data->>'banco',
+    p_data->>'conta',
+    (p_data->>'periodo_inicio')::date,
+    (p_data->>'periodo_fim')::date,
+    p_data->>'arquivo_nome',
+    (p_data->>'qtd_transacoes')::int
+  )
+  RETURNING id INTO v_extrato_id;
+
+  FOR v_txn IN SELECT * FROM jsonb_array_elements(p_data->'transacoes')
+  LOOP
+    INSERT INTO extrato_transacao (extrato_id, fitid, data, valor, tipo, descricao, categoria_sugerida, dre_classificacao)
+    VALUES (
+      v_extrato_id,
+      v_txn->>'fitid',
+      (v_txn->>'data')::date,
+      (v_txn->>'valor')::numeric,
+      v_txn->>'tipo',
+      v_txn->>'descricao',
+      v_txn->>'categoria_sugerida',
+      v_txn->>'dre_classificacao'
+    )
+    ON CONFLICT (fitid) DO NOTHING;
+  END LOOP;
+
+  RETURN v_extrato_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION import_extrato(jsonb) TO authenticated;
 ```
 
 ### Refresh
@@ -373,9 +436,11 @@ export interface ExtratoTransacao {
   descricao: string;
   categoria_sugerida: string;
   categoria_confirmada: string | null;
+  dre_classificacao: string | null;
   conciliado: boolean;
   conciliacao_ref: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface ExtratoRegraCustom {
@@ -410,9 +475,9 @@ export interface ConciliacaoResult {
 ### `src/services/api/extrato.ts`
 
 ```typescript
-// Upload
+// Upload — usa RPC import_extrato() para atomicidade (extrato + transações num único transaction)
+importExtrato(extrato: Omit<ExtratoBancario, 'id' | 'created_at'>, transacoes: Omit<ExtratoTransacao, 'id' | 'extrato_id' | 'created_at' | 'updated_at'>[]): Promise<string>
 fetchExistingFitids(fitids: string[]): Promise<string[]>
-insertExtrato(extrato: Omit<ExtratoBancario, 'id' | 'created_at'>, transacoes: Omit<ExtratoTransacao, 'id' | 'extrato_id' | 'created_at'>[]): Promise<string>
 
 // Queries
 fetchExtratos(): Promise<ExtratoBancario[]>
@@ -422,6 +487,9 @@ fetchRegrasCustom(): Promise<ExtratoRegraCustom[]>
 // Mutations
 updateTransacaoCategoria(id: string, categoria: string): Promise<void>
 insertRegraCustom(regra: Omit<ExtratoRegraCustom, 'id' | 'created_at'>): Promise<void>
+
+// Delete (cascade deletes transações)
+deleteExtrato(extratoId: string): Promise<void>
 
 // Conciliação
 triggerConciliacao(extratoId: string): Promise<ConciliacaoResult>
@@ -494,6 +562,6 @@ Stale time: 5 minutos (mesmo padrão dos hooks financeiros existentes).
 
 ## Dependências npm
 
-- `ofx-js` — parser OFX (browser-compatible, ~15KB gzipped)
+- `ofx-js` ou `node-ofx-parser` — parser OFX (browser-compatible). Fallback: parser custom SGML se nenhum pacote existente suportar o formato SGML da CEF corretamente.
 
 Nenhuma outra dependência nova necessária.
