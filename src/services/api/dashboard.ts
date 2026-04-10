@@ -58,3 +58,11 @@ export async function fetchConnectionStatus(): Promise<ConnectionStatus> {
     return { bling: false, shopify: false, rdstation: false }
   }
 }
+
+/** Manually trigger a refresh of all 17 materialized views. */
+export async function refreshViews(): Promise<void> {
+  const { error } = await supabase.rpc('refresh_financial_views')
+  if (error) {
+    throwApiError('refreshViews', error)
+  }
+}

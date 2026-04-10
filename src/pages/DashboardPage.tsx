@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useConnectionStatus } from '../services/queries/useDashboardQueries'
+import { useConnectionStatus, useRefreshViews } from '../services/queries/useDashboardQueries'
 import { usePlatformSync } from '../services/queries/useSyncMutations'
 import { getBlingOAuthURL, getShopifyOAuthURL } from '../services/api/sync'
 import { DADOS } from '../data/seed'
@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const blingSync = usePlatformSync('bling')
   const shopifySync = usePlatformSync('shopify')
   const rdstationSync = usePlatformSync('rdstation')
+  const viewsRefresh = useRefreshViews()
 
   // ── Bling OAuth ──
   const handleBlingConnect = () => {
@@ -112,14 +113,14 @@ export default function DashboardPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleShopifyConnect}
-                  className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 transition-colors"
+                  className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 transition-colors"
                 >
                   Conectar OAuth
                 </button>
                 <button
                   onClick={handleShopifySync}
                   disabled={shopifySync.progress.isRunning}
-                  className="rounded-md border border-green-600 px-3 py-1.5 text-xs font-medium text-green-600 hover:bg-green-50 dark:hover:bg-green-950 transition-colors disabled:opacity-50"
+                  className="rounded-md border border-brand-600 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-950 transition-colors disabled:opacity-50"
                 >
                   {shopifySync.progress.isRunning
                     ? `Sincronizando ${shopifySync.progress.currentStep ?? ''}...`
@@ -145,7 +146,7 @@ export default function DashboardPage() {
               <button
                 onClick={handleRDStationSync}
                 disabled={rdstationSync.progress.isRunning}
-                className="rounded-md bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-50"
+                className="rounded-md bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 transition-colors disabled:opacity-50"
               >
                 {rdstationSync.progress.isRunning ? 'Sincronizando...' : 'Sincronizar'}
               </button>
@@ -156,20 +157,28 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* File Import — removed: was dead code calling onDataApplied */}
+            {/* Views Refresh */}
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-lg font-bold text-gray-800 dark:text-gray-100">Arquivo</span>
-                <Badge type="baixo">Manual</Badge>
+                <span className="text-lg font-bold text-gray-800 dark:text-gray-100">Views</span>
+                <Badge type="positivo">Analytics</Badge>
               </div>
               <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-                Importar CSV, Excel ou PDF
+                Atualiza dashboards e relatorios
               </p>
               <button
-                className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 transition-colors"
+                onClick={() => viewsRefresh.mutate()}
+                disabled={viewsRefresh.isPending}
+                className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 transition-colors disabled:opacity-50"
               >
-                Importar Arquivo
+                {viewsRefresh.isPending ? 'Atualizando...' : 'Atualizar Views'}
               </button>
+              {viewsRefresh.isSuccess && (
+                <p className="mt-2 text-xs text-green-600">Atualizado com sucesso</p>
+              )}
+              {viewsRefresh.isError && (
+                <p className="mt-2 text-xs text-red-500">Erro ao atualizar</p>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -204,20 +213,20 @@ export default function DashboardPage() {
       </div>
 
       {/* === ALERT BANNER: Descobertas Shopify x CRM === */}
-      <div className="animate-fade-in rounded-xl border border-purple-300 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-950/40">
+      <div className="animate-fade-in rounded-xl border border-accent-300 bg-accent-50 p-4 dark:border-accent-800 dark:bg-accent-950/40">
         <div className="flex items-start gap-3">
           <span className="text-2xl">&#x1F50D;</span>
           <div className="flex-1">
-            <h3 className="text-sm font-bold text-purple-800 dark:text-purple-300">
+            <h3 className="text-sm font-bold text-accent-800 dark:text-accent-300">
               7 Descobertas Estrategicas — Cruzamento Shopify x CRM
             </h3>
-            <p className="mt-1 text-sm text-purple-700 dark:text-purple-400">
+            <p className="mt-1 text-sm text-accent-700 dark:text-accent-400">
               40.067 clientes Shopify fora do CRM | 86 &quot;perdas&quot; que compraram no site |
               100% dependencia de 1 vendedor | 43% das perdas por falta de follow-up
             </p>
             <Link
               to="/app/alertas"
-              className="mt-2 inline-block text-xs font-medium text-purple-600 dark:text-purple-300 hover:underline"
+              className="mt-2 inline-block text-xs font-medium text-accent-600 dark:text-accent-300 hover:underline"
             >
               Ver todas as descobertas e plano de acao &rarr;
             </Link>
@@ -253,7 +262,7 @@ export default function DashboardPage() {
           value={`${DADOS.receita.markup}%`}
           subvalue="Margem saudavel"
           trend="up"
-          color="green"
+          color="brand"
         />
       </div>
 
@@ -344,13 +353,13 @@ export default function DashboardPage() {
             label="Taxa Recompra"
             value={`${DADOS.empresa.taxaRecompra}%`}
             subvalue="Fidelizacao saudavel"
-            color="green"
+            color="brand"
           />
           <KPICard
             label="Anos de Operacao"
             value={`${DADOS.empresa.anosOperacao}+`}
             subvalue="Marca consolidada"
-            color="green"
+            color="brand"
           />
         </div>
       </SectionCard>
