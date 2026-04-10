@@ -49,7 +49,7 @@ export default function PeriodSelector() {
               className={`
                 w-full text-left px-3 py-2 text-xs transition-colors
                 ${m === mesSelecionado
-                  ? 'bg-green-500/15 text-green-600 dark:text-green-400 font-medium'
+                  ? 'bg-brand-500/15 text-brand-600 dark:text-brand-400 font-medium'
                   : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
                 }
               `}

@@ -67,7 +67,7 @@ const FUNNEL_STEPS = [
 const PRIORITY_CONFIG: Record<Priority, { label: string; badgeType: 'critico' | 'alto' | 'medio'; color: string }> = {
   p0: { label: 'Prioridade Critica (P0)', badgeType: 'critico', color: 'red' },
   p1: { label: 'Prioridade Alta (P1)', badgeType: 'alto', color: 'orange' },
-  p2: { label: 'Prioridade Media (P2)', badgeType: 'medio', color: 'green' },
+  p2: { label: 'Prioridade Media (P2)', badgeType: 'medio', color: 'brand' },
 }
 
 const STORAGE_KEY = 'mdo-saude-ecommerce-checked'
@@ -262,7 +262,7 @@ export default function SaudeEcommercePage() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2
               ${activeTab === tab.id
-                ? 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                ? 'bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-400'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800'
               }`}
           >
@@ -336,9 +336,9 @@ export default function SaudeEcommercePage() {
                   <p className="text-xl font-bold text-green-500">~60%</p>
                   <p className="text-[11px] text-gray-400">Estimado</p>
                 </div>
-                <div className="rounded-lg bg-purple-50 dark:bg-purple-950/30 p-3 text-center">
+                <div className="rounded-lg bg-accent-50 dark:bg-accent-950/30 p-3 text-center">
                   <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Direto/Outros</p>
-                  <p className="text-xl font-bold text-purple-500">~40%</p>
+                  <p className="text-xl font-bold text-accent-500">~40%</p>
                   <p className="text-[11px] text-gray-400">Estimado</p>
                 </div>
               </div>
@@ -389,7 +389,7 @@ export default function SaudeEcommercePage() {
                 </ul>
               </div>
               <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-4">
-                <h4 className="text-sm font-semibold text-green-500 mb-2">Analise de Gap</h4>
+                <h4 className="text-sm font-semibold text-brand-500 mb-2">Analise de Gap</h4>
                 <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1 list-disc pl-4">
                   <li>Alta impressao + baixa conversao</li>
                   <li>Baixa impressao (SEO do feed)</li>
@@ -502,7 +502,7 @@ export default function SaudeEcommercePage() {
                         >
                           <div className={`w-4.5 h-4.5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors
                             ${isChecked
-                              ? 'bg-green-500 border-green-500'
+                              ? 'bg-brand-500 border-brand-500'
                               : 'border-gray-300 dark:border-gray-600'
                             }`}
                             style={{ width: 18, height: 18 }}
@@ -518,7 +518,7 @@ export default function SaudeEcommercePage() {
                               {item.title}
                             </p>
                             <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                              Impacto: <span className="text-green-600 dark:text-green-400 font-medium">{item.impact}</span>
+                              Impacto: <span className="text-brand-600 dark:text-brand-400 font-medium">{item.impact}</span>
                             </p>
                           </div>
                           <Badge type={config.badgeType} className="shrink-0">{priority.toUpperCase()}</Badge>
@@ -533,7 +533,7 @@ export default function SaudeEcommercePage() {
             <ProgressBar
               value={counts.total}
               max={15}
-              color="green"
+              color="brand"
               showPercent
               className="mt-4"
             />
@@ -543,10 +543,10 @@ export default function SaudeEcommercePage() {
           <div className="space-y-6">
             <SectionCard title="Impacto Estimado">
               <div className="space-y-4">
-                <div className="rounded-lg bg-green-50 dark:bg-green-950/30 p-4">
-                  <p className="text-xs text-green-700 dark:text-green-400 mb-1">Se implementar todos os P0:</p>
-                  <p className="text-3xl font-bold text-green-700 dark:text-green-400">+45-90%</p>
-                  <p className="text-xs text-green-600 dark:text-green-500">Potencial aumento de conversao</p>
+                <div className="rounded-lg bg-brand-50 dark:bg-brand-950/30 p-4">
+                  <p className="text-xs text-brand-700 dark:text-brand-400 mb-1">Se implementar todos os P0:</p>
+                  <p className="text-3xl font-bold text-brand-700 dark:text-brand-400">+45-90%</p>
+                  <p className="text-xs text-brand-600 dark:text-brand-500">Potencial aumento de conversao</p>
                 </div>
 
                 <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 p-4">

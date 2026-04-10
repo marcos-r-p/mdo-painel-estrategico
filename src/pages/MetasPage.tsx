@@ -66,20 +66,20 @@ export default function MetasPage() {
     {
       fase: fase2,
       label: 'Fase 2',
-      borderColor: 'border-purple-200 dark:border-purple-800',
-      bgColor: 'bg-purple-50 dark:bg-purple-950/40',
-      headerBg: 'bg-purple-100 dark:bg-purple-900/50',
-      textColor: 'text-purple-800 dark:text-purple-300',
-      barColor: 'purple',
+      borderColor: 'border-accent-200 dark:border-accent-800',
+      bgColor: 'bg-accent-50 dark:bg-accent-950/40',
+      headerBg: 'bg-accent-100 dark:bg-accent-900/50',
+      textColor: 'text-accent-800 dark:text-accent-300',
+      barColor: 'accent',
     },
     {
       fase: fase3,
       label: 'Fase 3',
-      borderColor: 'border-green-200 dark:border-green-800',
-      bgColor: 'bg-green-50 dark:bg-green-950/40',
-      headerBg: 'bg-green-100 dark:bg-green-900/50',
-      textColor: 'text-green-800 dark:text-green-300',
-      barColor: 'green',
+      borderColor: 'border-brand-200 dark:border-brand-800',
+      bgColor: 'bg-brand-50 dark:bg-brand-950/40',
+      headerBg: 'bg-brand-100 dark:bg-brand-900/50',
+      textColor: 'text-brand-800 dark:text-brand-300',
+      barColor: 'brand',
     },
   ]
 
@@ -171,7 +171,7 @@ export default function MetasPage() {
               className={`
                 flex items-center justify-between rounded-lg border p-3
                 ${t.status === 'concluido'
-                  ? 'border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20'
+                  ? 'border-brand-200 bg-brand-50/50 dark:border-brand-800 dark:bg-brand-950/20'
                   : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800/50'
                 }
               `}
@@ -180,7 +180,7 @@ export default function MetasPage() {
                 <span
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold
                     ${t.status === 'concluido'
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400'
+                      ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-400'
                       : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                     }
                   `}
@@ -211,7 +211,7 @@ export default function MetasPage() {
         {/* Summary */}
         <div className="mt-4 flex items-center gap-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700 dark:bg-green-900/50 dark:text-green-400">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-400">
               {concluidas}
             </span>
             <span className="text-sm text-gray-600 dark:text-gray-400">concluidas</span>
@@ -226,7 +226,7 @@ export default function MetasPage() {
             <ProgressBar
               value={concluidas}
               max={tarefas.length}
-              color="green"
+              color="brand"
               showPercent
             />
           </div>

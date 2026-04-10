@@ -20,14 +20,14 @@ function getInitials(nome: string | null, email: string): string {
 
 function getAvatarColor(roleNome: string): string {
   const lower = roleNome.toLowerCase()
-  if (lower === 'admin') return 'bg-purple-600'
+  if (lower === 'admin') return 'bg-accent-600'
   if (lower === 'leitor') return 'bg-gray-500'
   return 'bg-blue-600'
 }
 
 function getRoleBadge(roleNome: string): string {
   const lower = roleNome.toLowerCase()
-  if (lower === 'admin') return 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+  if (lower === 'admin') return 'bg-accent-100 text-accent-800 dark:bg-accent-900/40 dark:text-accent-300'
   if (lower === 'leitor') return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
   return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
 }
@@ -171,7 +171,7 @@ export default function UsuariosPage() {
         </div>
         <button
           onClick={handleNewUser}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-accent-600 text-white text-sm font-medium rounded-lg hover:bg-accent-700 transition-colors"
         >
           <span className="text-lg leading-none">+</span>
           Novo Usuário
@@ -190,7 +190,7 @@ export default function UsuariosPage() {
             placeholder="Buscar por nome ou email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-500"
           />
         </div>
 
@@ -198,7 +198,7 @@ export default function UsuariosPage() {
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
         >
           <option value="">Todos os roles</option>
           {roles.map((r) => (
@@ -210,7 +210,7 @@ export default function UsuariosPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent-500"
         >
           <option value="ativo">Ativos</option>
           <option value="desativado">Desativados</option>
@@ -222,7 +222,7 @@ export default function UsuariosPage() {
           <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
             <div
               onClick={() => setIncludeDeleted((v) => !v)}
-              className={`relative w-9 h-5 rounded-full transition-colors ${includeDeleted ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+              className={`relative w-9 h-5 rounded-full transition-colors ${includeDeleted ? 'bg-accent-600' : 'bg-gray-300 dark:bg-gray-600'}`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${includeDeleted ? 'translate-x-4' : 'translate-x-0'}`}
@@ -280,7 +280,7 @@ export default function UsuariosPage() {
                             <div className="font-medium dark:text-white">
                               {u.nome ?? <span className="text-gray-400 italic">Sem nome</span>}
                               {isCurrentUser && (
-                                <span className="ml-2 text-xs text-purple-500 dark:text-purple-400">(você)</span>
+                                <span className="ml-2 text-xs text-accent-500 dark:text-accent-400">(você)</span>
                               )}
                             </div>
                             <div className="text-gray-500 dark:text-gray-400 text-xs">{u.email}</div>
@@ -317,7 +317,7 @@ export default function UsuariosPage() {
                           <button
                             onClick={() => handleEditUser(u)}
                             title="Editar usuário"
-                            className="p-1.5 rounded-lg text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 dark:hover:text-purple-400 transition-colors"
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-accent-600 hover:bg-accent-50 dark:hover:bg-accent-900/30 dark:hover:text-accent-400 transition-colors"
                           >
                             <PencilIcon />
                           </button>
@@ -415,7 +415,7 @@ export default function UsuariosPage() {
                 className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
                   confirmAction.type === 'deactivate'
                     ? 'bg-orange-600 hover:bg-orange-700'
-                    : 'bg-green-600 hover:bg-green-700'
+                    : 'bg-brand-600 hover:bg-brand-700'
                 }`}
               >
                 {confirmAction.type === 'deactivate' ? 'Desativar' : 'Reativar'}

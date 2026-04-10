@@ -1,19 +1,19 @@
-type ProgressBarColor = 'green' | 'red' | 'orange' | 'blue' | 'purple';
+type ProgressBarColor = 'brand' | 'red' | 'orange' | 'blue' | 'accent';
 
 const barColors: Record<ProgressBarColor, string> = {
-  green: 'bg-green-500 dark:bg-green-400',
+  brand: 'bg-brand-500 dark:bg-brand-400',
   red: 'bg-red-500 dark:bg-red-400',
   orange: 'bg-orange-500 dark:bg-orange-400',
   blue: 'bg-blue-500 dark:bg-blue-400',
-  purple: 'bg-purple-500 dark:bg-purple-400',
+  accent: 'bg-accent-500 dark:bg-accent-400',
 };
 
 const trackColors: Record<ProgressBarColor, string> = {
-  green: 'bg-green-100 dark:bg-green-900/30',
+  brand: 'bg-brand-100 dark:bg-brand-900/30',
   red: 'bg-red-100 dark:bg-red-900/30',
   orange: 'bg-orange-100 dark:bg-orange-900/30',
   blue: 'bg-blue-100 dark:bg-blue-900/30',
-  purple: 'bg-purple-100 dark:bg-purple-900/30',
+  accent: 'bg-accent-100 dark:bg-accent-900/30',
 };
 
 interface ProgressBarProps {

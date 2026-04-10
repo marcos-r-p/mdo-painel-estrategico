@@ -214,10 +214,10 @@ export default function ProdutosPage() {
       <SectionCard title="Curva ABC">
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Classe A */}
-          <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/40">
-            <p className="text-sm font-medium text-green-700 dark:text-green-400">Classe A</p>
-            <p className="mt-1 text-3xl font-bold text-green-600 dark:text-green-400">{curva.classeA}</p>
-            <p className="text-xs text-green-600/70 dark:text-green-500">produtos - 80% receita</p>
+          <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-950/40">
+            <p className="text-sm font-medium text-brand-700 dark:text-brand-400">Classe A</p>
+            <p className="mt-1 text-3xl font-bold text-brand-600 dark:text-brand-400">{curva.classeA}</p>
+            <p className="text-xs text-brand-600/70 dark:text-brand-500">produtos - 80% receita</p>
           </div>
 
           {/* Classe B */}
@@ -240,7 +240,7 @@ export default function ProdutosPage() {
             label="Classe A"
             value={curva.classeA}
             max={curva.total}
-            color="green"
+            color="brand"
             detail={`${curva.classeA} de ${curva.total}`}
             showPercent
           />
@@ -274,7 +274,7 @@ export default function ProdutosPage() {
           <KPICard
             label="Com Estoque"
             value={formatNumber(estoque.comEstoque as number)}
-            color="green"
+            color="brand"
           />
           <KPICard
             label="Valor Custo"
@@ -286,7 +286,7 @@ export default function ProdutosPage() {
             label="Valor Venda"
             value={formatCurrency(estoque.valorVenda as number)}
             subvalue={`margem implicita: ${estoque.margemImplicita}%`}
-            color="green"
+            color="brand"
           />
         </div>
 

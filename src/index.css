@@ -1,6 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Mundo dos Óleos — Brand Theme ── */
+@theme {
+  /* Brand: Verde Lima/Oliva (primary) */
+  --color-brand-50: #f8f9ec;
+  --color-brand-100: #eff1d3;
+  --color-brand-200: #dfe5a9;
+  --color-brand-300: #ccd675;
+  --color-brand-400: #bfcc4a;
+  --color-brand-500: #B5C327;
+  --color-brand-600: #8B9A1B;
+  --color-brand-700: #6b7616;
+  --color-brand-800: #545d14;
+  --color-brand-900: #464e16;
+  --color-brand-950: #252b07;
+
+  /* Accent: Laranja/Âmbar (secondary) */
+  --color-accent-50: #fef9ec;
+  --color-accent-100: #fcf0cd;
+  --color-accent-200: #f9de97;
+  --color-accent-300: #f5c85a;
+  --color-accent-400: #f2b62e;
+  --color-accent-500: #E8A628;
+  --color-accent-600: #cc8316;
+  --color-accent-700: #a96115;
+  --color-accent-800: #8a4c18;
+  --color-accent-900: #714017;
+  --color-accent-950: #421f09;
+
+  /* Typography */
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Nanum Pen Script', cursive;
+}
 
 * { -webkit-font-smoothing: antialiased; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }

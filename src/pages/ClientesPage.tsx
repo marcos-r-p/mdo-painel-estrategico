@@ -45,13 +45,13 @@ export default function ClientesPage() {
           label="Clientes Ativos"
           value={formatNumber(clientesAtivos)}
           subvalue="Periodo atual"
-          color="green"
+          color="brand"
         />
         <KPICard
           label="Taxa Recompra"
           value={`${taxaRecompra}%`}
           subvalue="Compraram mais de 1x"
-          color="green"
+          color="brand"
         />
         <KPICard
           label="Ticket Medio"
@@ -123,14 +123,14 @@ export default function ClientesPage() {
               </div>
               <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
                 <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Com Email</p>
-                <p className="mt-1 text-xl font-bold text-green-600 dark:text-green-400">
+                <p className="mt-1 text-xl font-bold text-brand-600 dark:text-brand-400">
                   {(base.percentEmail as number) || 76.6}%
                 </p>
                 <p className="text-xs text-gray-500">{formatNumber((base.comEmail as number) || 6127)} contatos</p>
               </div>
               <div className="rounded-lg border border-gray-100 p-3 dark:border-gray-800">
                 <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Com Celular</p>
-                <p className="mt-1 text-xl font-bold text-green-600 dark:text-green-400">
+                <p className="mt-1 text-xl font-bold text-brand-600 dark:text-brand-400">
                   {(base.percentCelular as number) || 76.8}%
                 </p>
                 <p className="text-xs text-gray-500">{formatNumber((base.comCelular as number) || 6148)} contatos</p>

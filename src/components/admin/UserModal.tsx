@@ -126,11 +126,11 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
               <div className="flex items-center gap-3">
                 <span className="text-sm dark:text-gray-300">Método:</span>
                 <button type="button" onClick={() => setSendEmail(true)}
-                  className={`px-3 py-1 text-sm rounded-lg ${sendEmail ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}>
+                  className={`px-3 py-1 text-sm rounded-lg ${sendEmail ? 'bg-accent-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}>
                   Convite por email
                 </button>
                 <button type="button" onClick={() => setSendEmail(false)}
-                  className={`px-3 py-1 text-sm rounded-lg ${!sendEmail ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}>
+                  className={`px-3 py-1 text-sm rounded-lg ${!sendEmail ? 'bg-accent-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-300'}`}>
                   Senha manual
                 </button>
               </div>
@@ -147,7 +147,7 @@ export default function UserModal({ isOpen, onClose, user }: UserModalProps) {
           {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancelar</button>
-            <button type="submit" disabled={isPending} className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+            <button type="submit" disabled={isPending} className="px-4 py-2 text-sm rounded-lg bg-accent-600 text-white hover:bg-accent-700 disabled:opacity-50">
               {isPending ? 'Salvando...' : isEdit ? 'Salvar' : 'Criar'}
             </button>
           </div>

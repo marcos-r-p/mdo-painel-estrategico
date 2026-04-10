@@ -258,9 +258,9 @@ export default function MatrizRFMPage() {
             {SEGMENTOS.length}
           </p>
         </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-950/40">
+        <div className="rounded-xl border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-950/40">
           <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Clientes Analisados</p>
-          <p className="mt-1 text-2xl font-bold text-green-600 dark:text-green-400">
+          <p className="mt-1 text-2xl font-bold text-brand-600 dark:text-brand-400">
             {totalClientes}
           </p>
         </div>
@@ -470,12 +470,12 @@ export default function MatrizRFMPage() {
                         </span>
                       </td>
                       <td className="py-2.5 pr-4 text-center">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
                           {c.f_score}
                         </span>
                       </td>
                       <td className="py-2.5 pr-4 text-center">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-xs font-bold text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-100 text-xs font-bold text-accent-700 dark:bg-accent-900/40 dark:text-accent-300">
                           {c.m_score}
                         </span>
                       </td>
@@ -583,8 +583,8 @@ export default function MatrizRFMPage() {
             <div className="grid grid-cols-3 gap-3">
               {[
                 { label: 'Recencia (R)', value: selectedCliente.r_score, color: 'blue' },
-                { label: 'Frequencia (F)', value: selectedCliente.f_score, color: 'green' },
-                { label: 'Monetario (M)', value: selectedCliente.m_score, color: 'purple' },
+                { label: 'Frequencia (F)', value: selectedCliente.f_score, color: 'brand' },
+                { label: 'Monetario (M)', value: selectedCliente.m_score, color: 'accent' },
               ].map((s) => (
                 <div key={s.label} className="rounded-lg border border-gray-100 p-3 text-center dark:border-gray-800">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{s.label}</p>

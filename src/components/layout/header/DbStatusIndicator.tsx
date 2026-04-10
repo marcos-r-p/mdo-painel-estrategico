@@ -15,7 +15,7 @@ export default function DbStatusIndicator() {
         : 'conectando'
 
   const dbStatusColor = dbStatus === 'online'
-    ? 'bg-green-500'
+    ? 'bg-brand-500'
     : dbStatus === 'erro'
       ? 'bg-red-500'
       : dbStatus === 'offline'

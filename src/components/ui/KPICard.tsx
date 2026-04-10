@@ -3,9 +3,9 @@ import SparklineChart from '../charts/SparklineChart';
 
 const colorMap: Record<KPIColor, { bg: string; border: string; accent: string }> = {
   green: {
-    bg: 'bg-green-50 dark:bg-green-950/40',
-    border: 'border-green-200 dark:border-green-800',
-    accent: 'text-green-600 dark:text-green-400',
+    bg: 'bg-brand-50 dark:bg-brand-950/40',
+    border: 'border-brand-200 dark:border-brand-800',
+    accent: 'text-brand-600 dark:text-brand-400',
   },
   red: {
     bg: 'bg-red-50 dark:bg-red-950/40',
@@ -13,9 +13,9 @@ const colorMap: Record<KPIColor, { bg: string; border: string; accent: string }>
     accent: 'text-red-600 dark:text-red-400',
   },
   orange: {
-    bg: 'bg-orange-50 dark:bg-orange-950/40',
-    border: 'border-orange-200 dark:border-orange-800',
-    accent: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-accent-50 dark:bg-accent-950/40',
+    border: 'border-accent-200 dark:border-accent-800',
+    accent: 'text-accent-600 dark:text-accent-400',
   },
   blue: {
     bg: 'bg-blue-50 dark:bg-blue-950/40',
@@ -27,10 +27,20 @@ const colorMap: Record<KPIColor, { bg: string; border: string; accent: string }>
     border: 'border-gray-200 dark:border-gray-700',
     accent: 'text-gray-600 dark:text-gray-400',
   },
+  brand: {
+    bg: 'bg-brand-50 dark:bg-brand-950/40',
+    border: 'border-brand-200 dark:border-brand-800',
+    accent: 'text-brand-600 dark:text-brand-400',
+  },
+  accent: {
+    bg: 'bg-accent-50 dark:bg-accent-950/40',
+    border: 'border-accent-200 dark:border-accent-800',
+    accent: 'text-accent-600 dark:text-accent-400',
+  },
 };
 
 const trendConfig: Record<KPITrend, { icon: string; color: string }> = {
-  up: { icon: '\u2191', color: 'text-green-600 dark:text-green-400' },
+  up: { icon: '\u2191', color: 'text-brand-600 dark:text-brand-400' },
   down: { icon: '\u2193', color: 'text-red-600 dark:text-red-400' },
   neutral: { icon: '\u2192', color: 'text-gray-500 dark:text-gray-400' },
 };

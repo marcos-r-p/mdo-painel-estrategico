@@ -67,7 +67,7 @@ export default function CanaisB2BPage() {
                 label={c.canal}
                 value={c.percent}
                 max={100}
-                color={c.canal === 'Shopify' ? 'green' : c.canal === 'Mercado Livre' ? 'blue' : 'purple'}
+                color={c.canal === 'Shopify' ? 'brand' : c.canal === 'Mercado Livre' ? 'blue' : 'accent'}
                 detail={`${formatCurrency(c.receita)} | ${c.pedidos} pedidos`}
                 showPercent
               />
@@ -91,8 +91,8 @@ export default function CanaisB2BPage() {
               onClick={() => setSelectedCanal(canal)}
               className="
                 flex flex-col gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4
-                text-left transition-all hover:border-green-300 hover:shadow-md
-                dark:border-gray-700 dark:bg-gray-800 dark:hover:border-green-600
+                text-left transition-all hover:border-brand-300 hover:shadow-md
+                dark:border-gray-700 dark:bg-gray-800 dark:hover:border-brand-600
               "
             >
               <div className="flex items-center justify-between gap-2">
@@ -122,7 +122,7 @@ export default function CanaisB2BPage() {
                   {canal.estrategia}
                 </p>
                 {canal.clienteRef && (
-                  <p className="mt-1 rounded bg-green-50 px-2 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  <p className="mt-1 rounded bg-brand-50 px-2 py-0.5 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
                     Ref: {canal.clienteRef}
                   </p>
                 )}
@@ -206,9 +206,9 @@ export default function CanaisB2BPage() {
             </div>
 
             {selectedCanal.clienteRef && (
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/30">
-                <p className="text-xs font-medium text-green-600 dark:text-green-400">Cliente Referencia</p>
-                <p className="mt-1 text-sm font-semibold text-green-800 dark:text-green-200">
+              <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 dark:border-brand-800 dark:bg-brand-900/30">
+                <p className="text-xs font-medium text-brand-600 dark:text-brand-400">Cliente Referencia</p>
+                <p className="mt-1 text-sm font-semibold text-brand-800 dark:text-brand-200">
                   {selectedCanal.clienteRef}
                 </p>
               </div>

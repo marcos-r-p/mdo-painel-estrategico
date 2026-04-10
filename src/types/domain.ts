@@ -3,7 +3,7 @@
 
 // ── KPI Card ─────────────────────────────────────────────────
 
-export type KPIColor = 'green' | 'red' | 'orange' | 'blue' | 'gray';
+export type KPIColor = 'green' | 'red' | 'orange' | 'blue' | 'gray' | 'brand' | 'accent';
 export type KPITrend = 'up' | 'down' | 'neutral';
 
 export interface KPIData {

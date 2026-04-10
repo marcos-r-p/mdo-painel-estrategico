@@ -68,27 +68,27 @@ export default function ResetPasswordPage() {
     w-full rounded-lg border border-gray-300 bg-white px-3 py-2
     text-sm text-gray-800 shadow-sm
     placeholder:text-gray-400
-    focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
+    focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500
     dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100
     dark:placeholder:text-gray-500
-    dark:focus:border-green-400 dark:focus:ring-green-400
+    dark:focus:border-brand-400 dark:focus:ring-brand-400
   `;
 
   const buttonClassName = `
-    w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold
+    w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold
     text-white shadow-sm transition-colors
-    hover:bg-green-700
+    hover:bg-brand-700
     disabled:cursor-not-allowed disabled:opacity-50
-    dark:bg-green-500 dark:hover:bg-green-600
+    dark:bg-brand-500 dark:hover:bg-brand-600
   `;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 to-orange-50 px-4 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 to-orange-50 px-4 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-900">
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {/* Logo */}
           <div className="mb-6 flex flex-col items-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 shadow-md">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 shadow-md">
               <span className="text-xl font-bold text-white">MdO</span>
             </div>
             <h1 className="mt-4 text-xl font-bold text-gray-800 dark:text-gray-100">
@@ -108,7 +108,7 @@ export default function ResetPasswordPage() {
               <div className="text-center">
                 <Link
                   to="/login"
-                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                  className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
                   Voltar ao login
                 </Link>
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
           {/* Success message */}
           {!expired && success && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+              <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-3 text-sm text-brand-700 dark:border-brand-800 dark:bg-brand-900/30 dark:text-brand-300">
                 Senha redefinida com sucesso! Redirecionando...
               </div>
             </div>
@@ -128,7 +128,7 @@ export default function ResetPasswordPage() {
           {/* Loading while waiting for recovery session */}
           {!expired && !success && !isPasswordRecovery && (
             <div className="flex justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-200 border-t-green-600" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
             </div>
           )}
 
@@ -184,7 +184,7 @@ export default function ResetPasswordPage() {
               <div className="text-center">
                 <Link
                   to="/login"
-                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                  className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
                   Voltar ao login
                 </Link>

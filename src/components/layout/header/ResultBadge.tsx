@@ -23,7 +23,7 @@ export default function ResultBadge() {
       className={`
         hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold
         ${isLucro
-          ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+          ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-400'
           : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
         }
       `}

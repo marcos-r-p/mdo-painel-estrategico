@@ -50,7 +50,7 @@ export default function RolesPage() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-600 text-white text-sm font-medium hover:bg-accent-700 transition-colors"
         >
           <span className="text-lg leading-none">+</span>
           Novo Role
@@ -142,14 +142,14 @@ export default function RolesPage() {
 
 function AdminCard({ role }: { role: RoleWithPermissions }) {
   return (
-    <div className="border-2 border-purple-500 dark:border-purple-400 rounded-xl p-5 bg-purple-50 dark:bg-purple-900/10">
+    <div className="border-2 border-accent-500 dark:border-accent-400 rounded-xl p-5 bg-accent-50 dark:bg-accent-900/10">
       {/* Card header */}
       <div className="flex items-start justify-between mb-1">
         <div className="flex items-center gap-2">
           <span className="text-xl">🔑</span>
-          <h3 className="font-semibold text-purple-700 dark:text-purple-300 capitalize">{role.nome}</h3>
+          <h3 className="font-semibold text-accent-700 dark:text-accent-300 capitalize">{role.nome}</h3>
         </div>
-        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300">
+        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-accent-100 dark:bg-accent-800 text-accent-700 dark:text-accent-300">
           Sistema
         </span>
       </div>
@@ -160,7 +160,7 @@ function AdminCard({ role }: { role: RoleWithPermissions }) {
       </p>
 
       {/* Notice */}
-      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-4 italic">
+      <p className="text-xs text-accent-600 dark:text-accent-400 font-medium mb-4 italic">
         Acesso total — não editável
       </p>
 
@@ -168,7 +168,7 @@ function AdminCard({ role }: { role: RoleWithPermissions }) {
       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
         {NAVIGATION_SECTIONS.map((section) => (
           <div key={section.id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
-            <span className="text-green-500 font-bold">✓</span>
+            <span className="text-brand-500 font-bold">✓</span>
             <span>{section.label}</span>
           </div>
         ))}
@@ -263,7 +263,7 @@ function RoleCard({ role, onEdit, onDelete, isDeleting }: RoleCardProps) {
               }`}
             >
               {hasAccess ? (
-                <span className="text-green-500 font-bold">✓</span>
+                <span className="text-brand-500 font-bold">✓</span>
               ) : (
                 <span className="text-red-400 font-bold">✗</span>
               )}

@@ -21,8 +21,8 @@ function NavItem({
   onNavigate: () => void
   activeColor?: 'green' | 'purple'
 }) {
-  const activeBg = activeColor === 'green' ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-purple-500/15 text-purple-600 dark:text-purple-400'
-  const activeBar = activeColor === 'green' ? 'bg-green-500' : 'bg-purple-500'
+  const activeBg = activeColor === 'green' ? 'bg-brand-500/15 text-brand-600 dark:text-brand-400' : 'bg-accent-500/15 text-accent-600 dark:text-accent-400'
+  const activeBar = activeColor === 'green' ? 'bg-brand-500' : 'bg-accent-500'
 
   return (
     <NavLink
@@ -119,17 +119,17 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       >
         {/* Brand */}
         <div className="flex items-center h-14 px-3 flex-shrink-0">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center flex-shrink-0 shadow-md">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0 shadow-md">
             <span className="text-white font-bold text-xs tracking-tight">MdO</span>
           </div>
           <span
             className={`
-              ml-3 font-semibold text-lg whitespace-nowrap overflow-hidden transition-opacity duration-200
-              text-gray-800 dark:text-white
+              ml-3 font-display text-xl whitespace-nowrap overflow-hidden transition-opacity duration-200
+              text-brand-600 dark:text-brand-400
               ${expanded ? 'opacity-100' : 'opacity-0 lg:opacity-0'}
             `}
           >
-            Painel
+            Mundo dos Óleos
           </span>
         </div>
 
@@ -188,7 +188,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                   ${expanded ? 'opacity-100 h-auto' : 'opacity-0 h-0 overflow-hidden'}
                 `}
               >
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-purple-400 dark:text-purple-500">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-accent-500 dark:text-accent-400">
                   Administração
                 </span>
               </div>

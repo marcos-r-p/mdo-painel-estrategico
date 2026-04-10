@@ -53,34 +53,34 @@ export default function LoginPage() {
     w-full rounded-lg border border-gray-300 bg-white px-3 py-2
     text-sm text-gray-800 shadow-sm
     placeholder:text-gray-400
-    focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500
+    focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500
     dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100
     dark:placeholder:text-gray-500
-    dark:focus:border-green-400 dark:focus:ring-green-400
+    dark:focus:border-brand-400 dark:focus:ring-brand-400
   `;
 
   const buttonClassName = `
-    w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold
+    w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold
     text-white shadow-sm transition-colors
-    hover:bg-green-700
+    hover:bg-brand-700
     disabled:cursor-not-allowed disabled:opacity-50
-    dark:bg-green-500 dark:hover:bg-green-600
+    dark:bg-brand-500 dark:hover:bg-brand-600
   `;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 to-orange-50 px-4 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 to-accent-50 px-4 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-900">
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {/* Logo */}
           <div className="mb-6 flex flex-col items-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 shadow-md">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-600 shadow-md">
               <span className="text-xl font-bold text-white">MdO</span>
             </div>
-            <h1 className="mt-4 text-xl font-bold text-gray-800 dark:text-gray-100">
-              Mundo dos Oleos
+            <h1 className="mt-4 font-display text-3xl text-accent-600 dark:text-accent-400">
+              Mundo dos Óleos
             </h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Painel Estrategico de Consultoria
+              Painel Estratégico de Consultoria
             </p>
           </div>
 
@@ -123,7 +123,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setError(''); setMode('forgotPassword'); }}
-                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                  className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
                   Esqueceu sua senha?
                 </button>
@@ -178,7 +178,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setError(''); setMode('login'); }}
-                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                  className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
                   Voltar ao login
                 </button>
@@ -189,7 +189,7 @@ export default function LoginPage() {
           {/* Mode: resetSent */}
           {mode === 'resetSent' && (
             <div className="space-y-4">
-              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300">
+              <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-3 text-sm text-brand-700 dark:border-brand-800 dark:bg-brand-900/30 dark:text-brand-300">
                 Enviamos um link de recuperacao para seu email. Verifique sua caixa de entrada.
               </div>
 
@@ -197,7 +197,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => { setError(''); setMode('login'); }}
-                  className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                  className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400"
                 >
                   Voltar ao login
                 </button>

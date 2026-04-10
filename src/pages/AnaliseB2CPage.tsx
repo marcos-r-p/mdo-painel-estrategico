@@ -39,9 +39,9 @@ const SUB_TABS: SubTab[] = [
 
 const FAIXAS: Faixa[] = [
   { label: 'R$ 0 - 500', min: 0, max: 500, color: 'blue' },
-  { label: 'R$ 500 - 1.000', min: 500, max: 1000, color: 'green' },
+  { label: 'R$ 500 - 1.000', min: 500, max: 1000, color: 'brand' },
   { label: 'R$ 1.000 - 2.000', min: 1000, max: 2000, color: 'orange' },
-  { label: 'R$ 2.000+', min: 2000, max: Infinity, color: 'purple' },
+  { label: 'R$ 2.000+', min: 2000, max: Infinity, color: 'accent' },
 ]
 
 export default function AnaliseB2CPage() {
@@ -150,7 +150,7 @@ export default function AnaliseB2CPage() {
               label="Pedidos B2C"
               value={formatNumber(pedidosB2C)}
               subvalue="No periodo"
-              color="green"
+              color="brand"
             />
             <KPICard
               label="Ticket Medio"
@@ -162,7 +162,7 @@ export default function AnaliseB2CPage() {
               label="Prod./Pedido"
               value={String(avgProdPedido)}
               subvalue="Media itens"
-              color="green"
+              color="brand"
             />
           </div>
 
@@ -237,11 +237,11 @@ export default function AnaliseB2CPage() {
                     className={`h-full rounded-full transition-all duration-500 ${
                       f.color === 'blue'
                         ? 'bg-blue-500'
-                        : f.color === 'green'
-                        ? 'bg-green-500'
+                        : f.color === 'brand'
+                        ? 'bg-brand-500'
                         : f.color === 'orange'
                         ? 'bg-orange-500'
-                        : 'bg-purple-500'
+                        : 'bg-accent-500'
                     }`}
                     style={{ width: `${(f.clientes / maxFaixa) * 100}%` }}
                   />
@@ -353,7 +353,7 @@ export default function AnaliseB2CPage() {
               </span>
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${
                 modalCliente.recompra
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                  ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/40 dark:text-brand-300'
                   : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
               }`}>
                 {modalCliente.recompra ? 'Recorrente' : 'Compra unica'}

@@ -118,11 +118,11 @@ export default function RoleModal({ isOpen, onClose, role }: RoleModalProps) {
                 return (
                   <label key={section.id} htmlFor={checkboxId}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm
-                      ${checked ? 'bg-purple-500/10 dark:bg-purple-500/20' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
+                      ${checked ? 'bg-accent-500/10 dark:bg-accent-500/20' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
                       ${pageKey === 'dashboard' ? 'opacity-60 cursor-not-allowed' : ''}`}>
                     <input id={checkboxId} type="checkbox" checked={checked} disabled={pageKey === 'dashboard'}
                       onChange={() => togglePage(pageKey)}
-                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                      className="rounded border-gray-300 text-accent-600 focus:ring-accent-500" />
                     <span className="dark:text-gray-300">{section.ariaLabel ?? section.label}</span>
                   </label>
                 )
@@ -132,7 +132,7 @@ export default function RoleModal({ isOpen, onClose, role }: RoleModalProps) {
           {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Cancelar</button>
-            <button type="submit" disabled={isPending} className="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+            <button type="submit" disabled={isPending} className="px-4 py-2 text-sm rounded-lg bg-accent-600 text-white hover:bg-accent-700 disabled:opacity-50">
               {isPending ? 'Salvando...' : isEdit ? 'Salvar' : 'Criar'}
             </button>
           </div>

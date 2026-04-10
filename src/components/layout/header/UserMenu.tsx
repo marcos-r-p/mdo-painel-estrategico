@@ -27,7 +27,7 @@ export default function UserMenu() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
       >
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
           <span className="text-white text-xs font-semibold">
             {(userProfile?.nome || user?.email || '?')[0].toUpperCase()}
           </span>
@@ -55,7 +55,7 @@ export default function UserMenu() {
                 className={`
                   inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium
                   ${userProfile.role_nome === 'admin'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400'
+                    ? 'bg-accent-100 text-accent-700 dark:bg-accent-900/40 dark:text-accent-400'
                     : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                   }
                 `}
